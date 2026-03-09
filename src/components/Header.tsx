@@ -73,32 +73,17 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentView, onContactHover
         <div className="flex justify-center md:justify-start items-center py-1.5 relative">
           <div className="flex gap-3 md:gap-7 items-center">
             <button 
-              onMouseEnter={() => { setFormData(prev => ({ ...prev, type: 'vender' })); onContactHover(true); }}
+              onMouseEnter={() => onContactHover(true)}
               onMouseLeave={() => onContactHover(false)}
+              onClick={() => onContactHover(!showContactForm)}
               className="text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] hover:text-leroy-orange transition-colors"
             >
-              Quiero vender
-            </button>
-            <button 
-              onClick={() => onNavigate('real_estate_sale')}
-              onMouseEnter={() => { setFormData(prev => ({ ...prev, type: 'comprar' })); onContactHover(true); }}
-              onMouseLeave={() => onContactHover(false)}
-              className="text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] hover:text-leroy-orange transition-colors"
-            >
-              Quiero comprar
-            </button>
-            <button 
-              onClick={() => onNavigate('real_estate_rent')}
-              onMouseEnter={() => { setFormData(prev => ({ ...prev, type: 'arrendar' })); onContactHover(true); }}
-              onMouseLeave={() => onContactHover(false)}
-              className="text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] hover:text-leroy-orange transition-colors"
-            >
-              Quiero arrendar
+              ¿QUIERES: VENDER / COMPRAR / ARRENDAR?
             </button>
             
             <div className="w-px h-3 bg-gray-300 mx-2 hidden md:block"></div>
 
-            <button onClick={() => onNavigate('real_estate_sale')} className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.2em] hover:text-leroy-orange transition-colors">Propiedades en Venta</button>
+            <button onClick={() => onNavigate('real_estate_sale')} className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.2em] hover:text-leroy-orange transition-colors">Propiedades exclusivas en Venta</button>
             <button onClick={() => onNavigate('real_estate_rent')} className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.2em] hover:text-leroy-orange transition-colors">Propiedades en Arriendo</button>
           </div>
 
@@ -112,15 +97,22 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentView, onContactHover
             <div className="bg-white p-3 rounded shadow-2xl border border-gray-100 w-64">
               <div className="flex items-baseline gap-2 mb-3">
                 <h3 className="text-leroy-black font-serif text-sm">Contáctame:</h3>
-                <select 
-                  value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value})}
-                  className="bg-transparent border-none p-0 text-[11px] font-serif text-leroy-orange outline-none cursor-pointer appearance-none"
-                >
-                  <option value="vender">Quiero vender</option>
-                  <option value="comprar">Quiero comprar</option>
-                  <option value="arrendar">Quiero arrendar</option>
-                </select>
+                <div className="relative flex items-center group/select">
+                  <select 
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    className="bg-transparent border-none pr-4 text-[11px] font-serif text-leroy-orange outline-none cursor-pointer appearance-none relative z-10"
+                  >
+                    <option value="vender" className="text-leroy-black">Quiero vender</option>
+                    <option value="comprar" className="text-leroy-black">Quiero comprar</option>
+                    <option value="arrendar" className="text-leroy-black">Quiero arrendar</option>
+                  </select>
+                  <div className="absolute right-0 pointer-events-none z-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-2 h-2 text-leroy-orange">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <form onSubmit={handleContactSubmit} className="space-y-2">
                 <input 
