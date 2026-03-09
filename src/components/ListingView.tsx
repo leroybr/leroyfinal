@@ -170,3 +170,4 @@ const ListingView: React.FC<ListingViewProps> = ({
 };
 
 export default ListingView;
+
