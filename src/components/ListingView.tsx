@@ -49,17 +49,17 @@ const ListingView: React.FC<ListingViewProps> = ({
   const heroConfig = {
     sale: {
       title: 'Propiedades en Venta',
-      subtitle: 'Descubre las residencias más exclusivas del mercado',
+      subtitle: '',
       image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1920&auto=format&fit=crop'
     },
     rent: {
       title: 'Propiedades en Arriendo',
-      subtitle: 'Vive la experiencia del lujo temporal',
+      subtitle: '',
       image: 'https://images.unsplash.com/photo-1600607687940-4e524cb35797?q=80&w=1920&auto=format&fit=crop'
     },
     all: {
       title: 'Propiedades en Venta',
-      subtitle: 'Explora nuestra colección completa de propiedades',
+      subtitle: '',
       image: 'https://images.unsplash.com/photo-1600596542815-2a434f678417?q=80&w=1920&auto=format&fit=crop'
     }
   };
