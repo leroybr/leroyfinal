@@ -357,3 +357,4 @@ const AdminView: React.FC<AdminViewProps> = ({ onAddProperty, onCancel }) => {
 };
 
 export default AdminView;
+
