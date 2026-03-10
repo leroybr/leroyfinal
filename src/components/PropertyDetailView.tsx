@@ -1,7 +1,9 @@
 
 import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Property } from '../types';
 import { ENV } from '../env';
+import { Share2, Instagram, MessageCircle, Copy, Check } from 'lucide-react';
 
 interface PropertyDetailViewProps {
   property: Property;
@@ -47,7 +49,39 @@ const ADDITIONAL_IMAGES = [
 
 const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({ property, onGoHome }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   
+  // JSON-LD for Google SEO
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "RealEstateListing",
+    "name": property.title,
+    "description": property.description,
+    "url": window.location.href,
+    "image": property.imageUrl,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": property.location,
+      "addressCountry": "CL"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": property.price,
+      "priceCurrency": property.currency
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareOnWhatsApp = () => {
+    const text = `Hola! Mira esta propiedad en LeRoy Residence: ${property.title} en ${property.location}. ${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   // Use property.imageUrl as the first image, then add category images, then fallback to additional if needed
   const propertyGalleryImages = property.categoryImages?.map(ci => ci.imageUrl) || [];
   const galleryImages = [property.imageUrl, ...propertyGalleryImages];
@@ -64,6 +98,17 @@ const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({ property, onGoH
 
   return (
     <div className="pt-16 pb-4 bg-white min-h-screen">
+      <Helmet>
+        <title>{`${property.title} | LeRoy Residence`}</title>
+        <meta name="description" content={`${property.title} en ${property.location}. ${property.bedrooms} dorm, ${property.bathrooms} baños. ${property.description.substring(0, 150)}...`} />
+        <meta property="og:title" content={property.title} />
+        <meta property="og:description" content={property.subtitle} />
+        <meta property="og:image" content={property.imageUrl} />
+        <meta property="og:type" content="website" />
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd)}
+        </script>
+      </Helmet>
       {/* Navigation Bar */}
       <div className="max-w-7xl mx-auto px-8 mb-2 flex justify-between items-center">
         {onGoHome && (
@@ -75,7 +120,24 @@ const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({ property, onGoH
           </button>
         )}
         <div className="flex space-x-4">
-            <button className="p-2 border border-gray-100 rounded-full hover:border-leroy-orange hover:text-leroy-orange transition-all"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg></button>
+            <button 
+              onClick={shareOnWhatsApp}
+              className="p-2 border border-gray-100 rounded-full hover:border-green-500 hover:text-green-500 transition-all group relative"
+              title="Compartir en WhatsApp"
+            >
+              <MessageCircle size={16} />
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[8px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">WhatsApp</span>
+            </button>
+            <button 
+              onClick={handleCopyLink}
+              className="p-2 border border-gray-100 rounded-full hover:border-leroy-orange hover:text-leroy-orange transition-all group relative"
+              title="Copiar Link"
+            >
+              {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[8px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                {copied ? 'Copiado!' : 'Copiar Link'}
+              </span>
+            </button>
             <button className="p-2 border border-gray-100 rounded-full hover:border-leroy-orange hover:text-leroy-orange transition-all"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg></button>
         </div>
       </div>
