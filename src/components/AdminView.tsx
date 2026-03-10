@@ -16,6 +16,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onAddProperty, onCancel }) => {
     price: '',
     currency: 'UF',
     imageUrl: '',
+    categoryImages: [] as { category: string, imageUrl: string }[],
     bedrooms: '0',
     bathrooms: '0',
     area: '0',
@@ -28,6 +29,87 @@ const AdminView: React.FC<AdminViewProps> = ({ onAddProperty, onCancel }) => {
     isPremium: false
   });
 
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
+
+  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Export as JPEG with 0.7 quality to save significant space
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'main' | 'gallery') => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsProcessingImages(true);
+    try {
+      if (field === 'main') {
+        const resized = await resizeImage(files[0], 1600, 1200);
+        setFormData(prev => ({ ...prev, imageUrl: resized }));
+      } else {
+        const fileList = Array.from(files);
+        const newImages: { category: string, imageUrl: string }[] = [];
+        
+        for (let i = 0; i < fileList.length; i++) {
+          const resized = await resizeImage(fileList[i], 1200, 900);
+          newImages.push({ 
+            category: `Imagen ${formData.categoryImages.length + i + 1}`, 
+            imageUrl: resized 
+          });
+        }
+        
+        setFormData(prev => ({ 
+          ...prev, 
+          categoryImages: [...prev.categoryImages, ...newImages] 
+        }));
+      }
+    } catch (error) {
+      console.error('Error processing images:', error);
+    } finally {
+      setIsProcessingImages(false);
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      categoryImages: prev.categoryImages.filter((_, i) => i !== index)
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newProperty: Property = {
@@ -38,6 +120,7 @@ const AdminView: React.FC<AdminViewProps> = ({ onAddProperty, onCancel }) => {
       price: parseFloat(formData.price) || 0,
       currency: formData.currency,
       imageUrl: formData.imageUrl || 'https://picsum.photos/seed/new/1200/1500',
+      categoryImages: formData.categoryImages,
       bedrooms: parseInt(formData.bedrooms) || 0,
       bathrooms: parseInt(formData.bathrooms) || 0,
       area: parseInt(formData.area) || 0,
@@ -122,13 +205,63 @@ const AdminView: React.FC<AdminViewProps> = ({ onAddProperty, onCancel }) => {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">URL Imagen</label>
-              <input 
-                type="text" 
-                className="w-full border-b border-gray-200 py-3 outline-none focus:border-black transition-colors"
-                value={formData.imageUrl}
-                onChange={e => setFormData({...formData, imageUrl: e.target.value})}
-              />
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Imagen Principal</label>
+              <div className="flex flex-col gap-2">
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  className="w-full text-[10px] text-gray-400 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-[10px] file:font-bold file:uppercase file:tracking-widest file:bg-gray-50 file:text-black hover:file:bg-gray-100 cursor-pointer"
+                  onChange={e => handleFileChange(e, 'main')}
+                />
+                <div className="flex gap-4 items-center">
+                  <span className="text-[9px] text-gray-400 uppercase tracking-widest">O URL:</span>
+                  <input 
+                    type="text" 
+                    placeholder="https://..."
+                    className="flex-grow border-b border-gray-200 py-2 outline-none focus:border-black transition-colors text-[11px]"
+                    value={formData.imageUrl}
+                    onChange={e => setFormData({...formData, imageUrl: e.target.value})}
+                  />
+                </div>
+                {formData.imageUrl && (
+                  <div className="mt-2 aspect-video w-full overflow-hidden bg-gray-50 border border-gray-100">
+                    <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Galería de Imágenes (Opcional)</label>
+              <div className="flex flex-col gap-4 p-4 border border-dashed border-gray-200 rounded-lg">
+                <input 
+                  type="file" 
+                  multiple
+                  accept="image/*"
+                  className="w-full text-[10px] text-gray-400 file:mr-4 file:py-2 file:px-4 file:border-0 file:text-[10px] file:font-bold file:uppercase file:tracking-widest file:bg-black file:text-white hover:file:bg-orange-600 cursor-pointer transition-colors"
+                  onChange={e => handleFileChange(e, 'gallery')}
+                />
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest italic">
+                  Nota: Las imágenes se guardan localmente. Evite subir archivos muy pesados para no exceder el límite del navegador.
+                </p>
+                
+                {formData.categoryImages.length > 0 && (
+                  <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mt-2">
+                    {formData.categoryImages.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square group">
+                        <img src={img.imageUrl} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => removeGalleryImage(idx)}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -203,10 +336,20 @@ const AdminView: React.FC<AdminViewProps> = ({ onAddProperty, onCancel }) => {
 
         <button 
           type="submit"
-          className="w-full bg-black text-white py-4 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-orange-600 transition-colors flex items-center justify-center gap-4"
+          disabled={isProcessingImages}
+          className={`w-full bg-black text-white py-4 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-orange-600 transition-colors flex items-center justify-center gap-4 ${isProcessingImages ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <Plus size={18} />
-          Publicar Propiedad
+          {isProcessingImages ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Procesando Imágenes...
+            </>
+          ) : (
+            <>
+              <Plus size={18} />
+              Publicar Propiedad
+            </>
+          )}
         </button>
       </form>
     </div>
