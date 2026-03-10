@@ -48,8 +48,14 @@ const ADDITIONAL_IMAGES = [
 const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({ property, onGoHome }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
-  // Use property.imageUrl as the first image
-  const galleryImages = [property.imageUrl, ...ADDITIONAL_IMAGES];
+  // Use property.imageUrl as the first image, then add category images, then fallback to additional if needed
+  const propertyGalleryImages = property.categoryImages?.map(ci => ci.imageUrl) || [];
+  const galleryImages = [property.imageUrl, ...propertyGalleryImages];
+  
+  // If we still have very few images, add some fallbacks for a better look
+  if (galleryImages.length < 5) {
+    galleryImages.push(...ADDITIONAL_IMAGES.slice(0, 5 - galleryImages.length));
+  }
   
   const { uf, clp } = getPriceDisplay(property.price, property.currency);
   const amenities = property.amenities && property.amenities.length > 0 
