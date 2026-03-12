@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { Property, PropertyType, ListingType } from '../types';
-import { Plus, X, Download, Share2, Globe } from 'lucide-react';
+import { Plus, X, Download, Share2, Globe, Edit, Trash2, Search, BedDouble, Bath, Car, Maximize } from 'lucide-react';
 import { COMMUNES } from '../constants';
 
 interface AdminViewProps {
   properties: Property[];
   onAddProperty: (prop: Property) => void;
+  onDeleteProperty: (id: string) => void;
   onCancel: () => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCancel }) => {
-  const [activeTab, setActiveTab] = useState<'add' | 'marketing'>('add');
-  const [formData, setFormData] = useState({
+const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDeleteProperty, onCancel }) => {
+  const [activeTab, setActiveTab] = useState<'add' | 'marketing' | 'list'>('list');
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const initialFormState = {
     title: '',
     subtitle: '',
     location: COMMUNES[0],
@@ -29,7 +33,9 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCanc
     description: '',
     amenities: '',
     isPremium: false
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
 
   const [isProcessingImages, setIsProcessingImages] = useState(false);
 
@@ -45,22 +51,26 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCanc
           let width = img.width;
           let height = img.height;
 
-          if (width > height) {
-            if (width > maxWidth) {
-              height *= maxWidth / width;
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width *= maxHeight / height;
-              height = maxHeight;
-            }
+          // No redimensionar si la imagen ya es más pequeña que el máximo
+          if (width <= maxWidth && height <= maxHeight) {
+            resolve(img.src);
+            return;
           }
+
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = width * ratio;
+          height = height * ratio;
 
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Suavizado de imagen para mejor calidad
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+          }
           
           // Export as JPEG with 0.7 quality to save significant space
           const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
@@ -115,10 +125,10 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCanc
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newProperty: Property = {
-      id: Date.now().toString(),
+      id: editingPropertyId || Date.now().toString(),
       title: formData.title,
       subtitle: formData.subtitle,
-      location: `${formData.location}, Chile`,
+      location: `${formData.location.split(',')[0]}, Chile`,
       price: parseFloat(formData.price) || 0,
       currency: formData.currency,
       imageUrl: formData.imageUrl || 'https://picsum.photos/seed/new/1200/1500',
@@ -135,7 +145,41 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCanc
       isPremium: formData.isPremium
     };
     onAddProperty(newProperty);
+    
+    // Reset form and go back to list
+    setFormData(initialFormState);
+    setEditingPropertyId(null);
+    setActiveTab('list');
   };
+
+  const handleEdit = (p: Property) => {
+    setEditingPropertyId(p.id);
+    setFormData({
+      title: p.title,
+      subtitle: p.subtitle,
+      location: p.location.split(',')[0],
+      price: p.price.toString(),
+      currency: p.currency,
+      imageUrl: p.imageUrl,
+      categoryImages: p.categoryImages || [],
+      bedrooms: p.bedrooms.toString(),
+      bathrooms: p.bathrooms.toString(),
+      area: p.area.toString(),
+      landArea: (p.landArea || 0).toString(),
+      parking: (p.parking || 0).toString(),
+      type: p.type,
+      listingType: p.listingType,
+      description: p.description,
+      amenities: p.amenities.join(', '),
+      isPremium: p.isPremium
+    });
+    setActiveTab('add');
+  };
+
+  const filteredProperties = properties.filter(p => 
+    p.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.location.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="pt-24 pb-12 px-8 max-w-4xl mx-auto">
@@ -148,10 +192,20 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCanc
 
       <div className="flex gap-8 border-b border-gray-100 mb-8">
         <button 
-          onClick={() => setActiveTab('add')}
+          onClick={() => setActiveTab('list')}
+          className={`pb-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${activeTab === 'list' ? 'text-black border-b-2 border-black' : 'text-gray-400'}`}
+        >
+          Mis Publicaciones
+        </button>
+        <button 
+          onClick={() => {
+            setActiveTab('add');
+            setEditingPropertyId(null);
+            setFormData(initialFormState);
+          }}
           className={`pb-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${activeTab === 'add' ? 'text-black border-b-2 border-black' : 'text-gray-400'}`}
         >
-          Nueva Propiedad
+          {editingPropertyId ? 'Editando Propiedad' : 'Nueva Propiedad'}
         </button>
         <button 
           onClick={() => setActiveTab('marketing')}
@@ -161,10 +215,67 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCanc
         </button>
       </div>
 
+      {activeTab === 'list' && (
+        <div className="space-y-6 animate-fadeIn">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input 
+              type="text"
+              placeholder="Buscar por título o ubicación..."
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none outline-none text-sm focus:ring-1 focus:ring-black transition-all"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {filteredProperties.map(p => (
+              <div key={p.id} className="flex items-center gap-6 p-4 border border-gray-100 hover:border-black transition-all group">
+                <div className="w-24 h-24 bg-gray-100 flex-shrink-0 overflow-hidden">
+                  <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex-grow">
+                  <h3 className="font-serif text-lg">{p.title}</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{p.location}</p>
+                  <p className="text-[10px] font-bold text-leroy-orange mt-1">{p.currency} {p.price.toLocaleString()}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleEdit(p)}
+                    className="p-3 bg-gray-50 text-gray-400 hover:bg-black hover:text-white transition-all rounded-full"
+                    title="Editar"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm('¿Estás seguro de que deseas eliminar esta propiedad?')) {
+                        onDeleteProperty(p.id);
+                      }
+                    }}
+                    className="p-3 bg-gray-50 text-gray-400 hover:bg-red-500 hover:text-white transition-all rounded-full"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {filteredProperties.length === 0 && (
+              <div className="text-center py-12 border border-dashed border-gray-200">
+                <p className="text-sm text-gray-400">No se encontraron propiedades.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'add' ? (
         <form onSubmit={handleSubmit} className="space-y-6">
           <section>
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-500 mb-4">Información Pública</h2>
+            <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-500 mb-4">
+              {editingPropertyId ? 'Modificar Publicación' : 'Información Pública'}
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Título</label>
@@ -364,8 +475,8 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onCanc
               </>
             ) : (
               <>
-                <Plus size={18} />
-                Publicar Propiedad
+                {editingPropertyId ? <Edit size={18} /> : <Plus size={18} />}
+                {editingPropertyId ? 'Guardar Cambios' : 'Publicar Propiedad'}
               </>
             )}
           </button>
