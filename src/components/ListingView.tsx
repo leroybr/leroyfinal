@@ -1,6 +1,6 @@
 import React from 'react';
 import { Property, ListingType } from '../types';
-import { MapPin, ArrowLeft } from 'lucide-react';
+import { MapPin, ArrowLeft, BedDouble, Bath, Car, Maximize } from 'lucide-react';
 import { COMMUNES } from '../constants';
 
 interface ListingViewProps {
