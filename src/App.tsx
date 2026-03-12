@@ -17,8 +17,7 @@ const App: React.FC = () => {
   const [selectedCommunes, setSelectedCommunes] = useState<string[]>([]);
   
   // Persistencia: Cargar propiedades desde el servidor al iniciar
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -26,25 +25,20 @@ const App: React.FC = () => {
         const response = await fetch('/api/properties');
         if (response.ok) {
           const data = await response.json();
-          if (data && data.length > 0) {
+          if (Array.isArray(data) && data.length > 0) {
             setProperties(data);
-          } else {
-            // Si el servidor está vacío, usar MOCK y guardar en servidor
-            setProperties(MOCK_PROPERTIES);
-            saveToServer(MOCK_PROPERTIES);
           }
         }
       } catch (error) {
         console.error('Error fetching properties:', error);
-        // Fallback a localStorage si el servidor falla
         const saved = localStorage.getItem('leroy_properties_v1');
         if (saved) {
-          setProperties(JSON.parse(saved));
-        } else {
-          setProperties(MOCK_PROPERTIES);
+          try {
+            setProperties(JSON.parse(saved));
+          } catch (e) {
+            // Keep MOCK_PROPERTIES
+          }
         }
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -94,11 +88,9 @@ const App: React.FC = () => {
 
   // Guardar propiedades cada vez que cambien
   useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
-      saveToServer(properties);
-    }
-  }, [properties, isLoading]);
+    localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
+    saveToServer(properties);
+  }, [properties]);
 
   // Scroll to top on view change
   useEffect(() => {
