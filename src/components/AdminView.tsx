@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Property, PropertyType, ListingType } from '../types';
-import { Plus, X, Download, Share2, Globe, Edit, Trash2, Search, BedDouble, Bath, Car, Maximize } from 'lucide-react';
+import { Plus, X, Download, Share2, Globe, Edit, Trash2, Search, Bed, Bath, Car, Maximize } from 'lucide-react';
 import { COMMUNES } from '../constants';
 
 interface AdminViewProps {
@@ -231,7 +231,7 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
           <div className="grid grid-cols-1 gap-4">
             {filteredProperties.map(p => (
               <div key={p.id} className="flex items-center gap-6 p-4 border border-gray-100 hover:border-black transition-all group">
-                <div className="w-24 h-24 bg-gray-100 flex-shrink-0 overflow-hidden">
+                <div className="w-24 h-24 bg-gray-100 flex-shrink-0 overflow-hidden border-2 border-leroy-orange">
                   <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-grow">
@@ -353,8 +353,31 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
                     />
                   </div>
                   {formData.imageUrl && (
-                    <div className="mt-2 aspect-video w-full overflow-hidden bg-gray-50 border border-gray-100">
-                      <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="mt-2 aspect-video w-full flex flex-col overflow-hidden bg-gray-50 border-4 border-leroy-orange shadow-lg">
+                      <div className="flex-grow overflow-hidden relative">
+                        <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="bg-white px-4 py-3 border-t border-leroy-orange/10 flex justify-between items-center">
+                        <div className="flex gap-4 text-gray-600">
+                          <div className="flex items-center gap-1.5">
+                            <Bed size={14} className="text-leroy-orange" />
+                            <span className="text-[10px] font-bold">{formData.bedrooms}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Bath size={14} className="text-leroy-orange" />
+                            <span className="text-[10px] font-bold">{formData.bathrooms}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Car size={14} className="text-leroy-orange" />
+                            <span className="text-[10px] font-bold">{formData.parking}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Maximize size={14} className="text-leroy-orange" />
+                            <span className="text-[10px] font-bold">{formData.area}m²</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-serif font-medium text-leroy-orange">LeRoy Residence</span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -534,10 +557,21 @@ const MarketingSection: React.FC<{ properties: Property[] }> = ({ properties }) 
     a.click();
   };
 
+  const feedUrls = {
+    facebook: `${window.location.origin}/api/feeds/facebook.xml`,
+    universal: `${window.location.origin}/api/feeds/universal.xml`,
+    json: `${window.location.origin}/api/properties`
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert('URL copiada al portapapeles');
+  };
+
   return (
     <div className="space-y-12 animate-fadeIn">
       <section>
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-500 mb-6">Generación de Feeds Automáticos</h2>
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-500 mb-6">Sincronización con Portales (Feeds)</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-6 border border-gray-100 bg-gray-50/50 space-y-4">
             <div className="flex items-center gap-3 mb-2">
@@ -547,35 +581,50 @@ const MarketingSection: React.FC<{ properties: Property[] }> = ({ properties }) 
               <h3 className="font-serif text-xl">Facebook & Instagram</h3>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Genera un archivo XML compatible con el catálogo de "Bienes Raíces" de Facebook Ads. 
-              Úsalo para crear anuncios dinámicos.
+              Usa este link en tu "Catálogo de Bienes Raíces" de Facebook Business Suite para que tus anuncios se actualicen solos.
             </p>
-            <button 
-              onClick={generateFacebookFeed}
-              className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-leroy-black hover:text-leroy-orange transition-colors"
-            >
-              <Download size={14} />
-              Descargar XML Feed
-            </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 bg-white p-2 border border-gray-200 rounded text-[10px] font-mono overflow-hidden">
+                <span className="truncate flex-grow">{feedUrls.facebook}</span>
+                <button onClick={() => copyToClipboard(feedUrls.facebook)} className="text-leroy-orange hover:text-black">
+                  <Download size={14} />
+                </button>
+              </div>
+              <button 
+                onClick={generateFacebookFeed}
+                className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-gray-400 hover:text-leroy-orange transition-colors"
+              >
+                <Download size={14} />
+                Descargar XML Manual
+              </button>
+            </div>
           </div>
 
           <div className="p-6 border border-gray-100 bg-gray-50/50 space-y-4">
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-purple-100 text-purple-600 rounded">
-                <Share2 size={20} />
+              <div className="p-2 bg-orange-100 text-orange-600 rounded">
+                <Globe size={20} />
               </div>
-              <h3 className="font-serif text-xl">JSON Feed (Universal)</h3>
+              <h3 className="font-serif text-xl">Portal Inmobiliario / Otros</h3>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Exporta toda tu base de datos en formato JSON. Ideal para migraciones o integraciones con otras aplicaciones.
+              Link universal compatible con la mayoría de los portales que aceptan importación vía XML (Feed URL).
             </p>
-            <button 
-              onClick={generateJSONFeed}
-              className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-leroy-black hover:text-leroy-orange transition-colors"
-            >
-              <Download size={14} />
-              Descargar JSON
-            </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 bg-white p-2 border border-gray-200 rounded text-[10px] font-mono overflow-hidden">
+                <span className="truncate flex-grow">{feedUrls.universal}</span>
+                <button onClick={() => copyToClipboard(feedUrls.universal)} className="text-leroy-orange hover:text-black">
+                  <Download size={14} />
+                </button>
+              </div>
+              <button 
+                onClick={generateJSONFeed}
+                className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-gray-400 hover:text-leroy-orange transition-colors"
+              >
+                <Download size={14} />
+                Descargar JSON Manual
+              </button>
+            </div>
           </div>
         </div>
       </section>
