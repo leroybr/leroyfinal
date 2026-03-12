@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Footer from './components/Footer';
@@ -15,19 +16,40 @@ const App: React.FC = () => {
   const [listingCategory, setListingCategory] = useState<'sale' | 'rent' | 'all'>('all');
   const [selectedCommunes, setSelectedCommunes] = useState<string[]>([]);
   
-  // Persistencia: Cargar propiedades desde LocalStorage al iniciar
-  const [properties, setProperties] = useState<Property[]>(() => {
-    const saved = localStorage.getItem('leroy_properties_v1');
-    if (saved) {
+  // Persistencia: Cargar propiedades desde el servidor al iniciar
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProperties = async () => {
       try {
-        const parsed = JSON.parse(saved);
-        return parsed.length > 0 ? parsed : MOCK_PROPERTIES;
-      } catch (e) {
-        return MOCK_PROPERTIES;
+        const response = await fetch('/api/properties');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setProperties(data);
+          } else {
+            // Si el servidor está vacío, usar MOCK y guardar en servidor
+            setProperties(MOCK_PROPERTIES);
+            saveToServer(MOCK_PROPERTIES);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching properties:', error);
+        // Fallback a localStorage si el servidor falla
+        const saved = localStorage.getItem('leroy_properties_v1');
+        if (saved) {
+          setProperties(JSON.parse(saved));
+        } else {
+          setProperties(MOCK_PROPERTIES);
+        }
+      } finally {
+        setIsLoading(false);
       }
-    }
-    return MOCK_PROPERTIES;
-  });
+    };
+
+    fetchProperties();
+  }, []);
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -58,10 +80,25 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  const saveToServer = async (props: Property[]) => {
+    try {
+      await fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(props)
+      });
+    } catch (error) {
+      console.error('Error saving to server:', error);
+    }
+  };
+
   // Guardar propiedades cada vez que cambien
   useEffect(() => {
-    localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
-  }, [properties]);
+    if (!isLoading) {
+      localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
+      saveToServer(properties);
+    }
+  }, [properties, isLoading]);
 
   // Scroll to top on view change
   useEffect(() => {
@@ -117,7 +154,13 @@ const App: React.FC = () => {
   };
 
   const handleAddProperty = (newProp: Property) => {
-    setProperties([newProp, ...properties]);
+    setProperties(prev => {
+      const exists = prev.find(p => p.id === newProp.id);
+      if (exists) {
+        return prev.map(p => p.id === newProp.id ? newProp : p);
+      }
+      return [newProp, ...prev];
+    });
     
     // Automatically set the category to match the new property's type
     if (newProp.listingType === ListingType.SALE || String(newProp.listingType).toLowerCase() === 'venta') {
@@ -128,6 +171,10 @@ const App: React.FC = () => {
     
     setSelectedCommunes([]); // Clear filters to ensure the new property is visible
     setView('real_estate');
+  };
+
+  const handleDeleteProperty = (id: string) => {
+    setProperties(prev => prev.filter(p => p.id !== id));
   };
 
   const handleAdminAccess = () => {
@@ -174,6 +221,15 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      <Helmet>
+        <title>LeRoy Residence | Propiedades de Lujo en Chile</title>
+        <meta name="description" content="Encuentra las mejores propiedades de lujo en venta y arriendo en las comunas más exclusivas de Chile. Casas, departamentos y villas espectaculares." />
+        <meta name="keywords" content="propiedades de lujo chile, casas en venta lo barnechea, arriendo departamentos vitacura, corretaje de propiedades premium" />
+        <meta property="og:title" content="LeRoy Residence | Propiedades de Lujo" />
+        <meta property="og:description" content="Corretaje de propiedades exclusivo en Chile. Venta y arriendo de mansiones, villas y departamentos premium." />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+      </Helmet>
       {showIntro && (
         <div className="fixed inset-0 z-[200] bg-white flex flex-col items-center justify-center text-center px-8">
           <div className="max-w-2xl">
@@ -243,7 +299,9 @@ const App: React.FC = () => {
           ) : (
             <>
               <AdminView 
+                properties={properties}
                 onAddProperty={handleAddProperty} 
+                onDeleteProperty={handleDeleteProperty}
                 onCancel={() => setIsConfirmingLogout(true)} 
               />
               {isConfirmingLogout && (
