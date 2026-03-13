@@ -27,10 +27,17 @@ async function startServer() {
   // API Routes
   app.get("/api/properties", (req, res) => {
     try {
+      if (!fs.existsSync(PROPERTIES_FILE)) {
+        return res.json([]);
+      }
       const data = fs.readFileSync(PROPERTIES_FILE, 'utf-8');
+      if (!data.trim()) {
+        return res.json([]);
+      }
       res.json(JSON.parse(data));
     } catch (error) {
-      res.status(500).json({ error: "Failed to read properties" });
+      console.error("Error parsing properties:", error);
+      res.json([]); // Return empty array on error instead of 500
     }
   });
 
