@@ -37,6 +37,30 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
 
   const [formData, setFormData] = useState(initialFormState);
 
+  // Draft System: Load draft on mount
+  React.useEffect(() => {
+    const savedDraft = localStorage.getItem('leroy_property_draft');
+    if (savedDraft && !editingPropertyId) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        setFormData(prev => ({ ...prev, ...parsed }));
+      } catch (e) {
+        console.error('Error loading draft:', e);
+      }
+    }
+  }, [editingPropertyId]);
+
+  // Draft System: Save draft on change
+  React.useEffect(() => {
+    if (activeTab === 'add' && !editingPropertyId) {
+      // Only save if there's actual content to save
+      const hasContent = formData.title || formData.description || formData.imageUrl || formData.price;
+      if (hasContent) {
+        localStorage.setItem('leroy_property_draft', JSON.stringify(formData));
+      }
+    }
+  }, [formData, activeTab, editingPropertyId]);
+
   const [isProcessingImages, setIsProcessingImages] = useState(false);
 
   const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
@@ -146,7 +170,8 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
     };
     onAddProperty(newProperty);
     
-    // Reset form and go back to list
+    // Reset form, clear draft and go back to list
+    localStorage.removeItem('leroy_property_draft');
     setFormData(initialFormState);
     setEditingPropertyId(null);
     setActiveTab('list');
@@ -200,8 +225,20 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
         <button 
           onClick={() => {
             setActiveTab('add');
-            setEditingPropertyId(null);
-            setFormData(initialFormState);
+            if (editingPropertyId) {
+              setEditingPropertyId(null);
+              // Only reset if we were editing, to allow draft loading for new properties
+              const savedDraft = localStorage.getItem('leroy_property_draft');
+              if (savedDraft) {
+                try {
+                  setFormData(JSON.parse(savedDraft));
+                } catch (e) {
+                  setFormData(initialFormState);
+                }
+              } else {
+                setFormData(initialFormState);
+              }
+            }
           }}
           className={`pb-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${activeTab === 'add' ? 'text-black border-b-2 border-black' : 'text-gray-400'}`}
         >
