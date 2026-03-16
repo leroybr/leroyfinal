@@ -1,9 +1,8 @@
 export enum PropertyType {
-  MANSION = 'Mansión',
-  VILLA = 'Villa',
-  APARTMENT = 'Departamento',
   HOUSE = 'Casa',
-  PENTHOUSE = 'Penthouse'
+  APARTMENT = 'Departamento',
+  LAND = 'Terreno',
+  PARCEL = 'Parcela'
 }
 
 export enum ListingType {
@@ -35,6 +34,7 @@ export interface Property {
   amenities: string[];
   isPremium: boolean;
   categoryImages?: PropertyCategoryImage[];
+  gallery?: string[];
 }
 
 export interface HeroSearchState {
