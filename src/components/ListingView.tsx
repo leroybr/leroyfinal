@@ -1,13 +1,15 @@
 import React from 'react';
-import { Property, ListingType } from '../types';
-import { MapPin, ArrowLeft, BedDouble, Bath, Car, Maximize } from 'lucide-react';
+import { Property, ListingType, PropertyType } from '../types';
+import { MapPin, ArrowLeft, Bed, Bath, Car, Maximize, Home, Building, LandPlot, Trees } from 'lucide-react';
 import { COMMUNES } from '../constants';
 
 interface ListingViewProps {
   category: 'sale' | 'rent' | 'all';
   properties: Property[];
   selectedCommunes: string[];
+  selectedType: PropertyType | null;
   onToggleCommune: (commune: string | null) => void;
+  onToggleType: (type: PropertyType | null) => void;
   onClearFilters: () => void;
   onPropertyClick: (id: string) => void;
   onGoHome: () => void;
@@ -17,7 +19,10 @@ const ListingView: React.FC<ListingViewProps> = ({
   category, 
   properties, 
   selectedCommunes,
+  selectedType,
   onToggleCommune,
+  onToggleType,
+  onClearFilters,
   onPropertyClick, 
   onGoHome 
 }) => {
@@ -38,9 +43,14 @@ const ListingView: React.FC<ListingViewProps> = ({
     
     // If communes are selected, filter by them. Otherwise, show all properties of the category.
     if (selectedCommunes && selectedCommunes.length > 0) {
-      return selectedCommunes.some(commune => 
+      const matchesCommune = selectedCommunes.some(commune => 
         normalizedLocation.includes(normalizeString(commune))
       );
+      if (!matchesCommune) return false;
+    }
+
+    if (selectedType) {
+      if (p.type !== selectedType) return false;
     }
     
     return true;
@@ -87,7 +97,7 @@ const ListingView: React.FC<ListingViewProps> = ({
         </div>
 
         {/* Commune Filter */}
-        <div className="flex flex-wrap justify-start gap-x-8 gap-y-3 py-4 w-full relative">
+        <div className="flex flex-wrap justify-start gap-x-8 gap-y-3 py-4 w-full relative border-b border-gray-50">
           <button 
             onClick={() => onToggleCommune(null)}
             className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 ${selectedCommunes.length === 0 ? 'border-leroy-orange text-leroy-black' : 'border-transparent text-gray-400 hover:text-leroy-black'}`}
@@ -103,10 +113,48 @@ const ListingView: React.FC<ListingViewProps> = ({
               {commune}
             </button>
           ))}
+        </div>
+
+        {/* Property Type Filter */}
+        <div className="flex flex-wrap justify-start gap-x-8 gap-y-3 py-4 w-full relative">
+          <button 
+            onClick={() => onToggleType(null)}
+            className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 ${selectedType === null ? 'border-leroy-orange text-leroy-black' : 'border-transparent text-gray-400 hover:text-leroy-black'}`}
+          >
+            Todos los tipos
+          </button>
+          <button 
+            onClick={() => onToggleType(PropertyType.HOUSE)}
+            className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 ${selectedType === PropertyType.HOUSE ? 'border-leroy-orange text-leroy-black' : 'border-transparent text-gray-400 hover:text-leroy-black'}`}
+          >
+            <Home size={12} />
+            Casas
+          </button>
+          <button 
+            onClick={() => onToggleType(PropertyType.APARTMENT)}
+            className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 ${selectedType === PropertyType.APARTMENT ? 'border-leroy-orange text-leroy-black' : 'border-transparent text-gray-400 hover:text-leroy-black'}`}
+          >
+            <Building size={12} />
+            Departamentos
+          </button>
+          <button 
+            onClick={() => onToggleType(PropertyType.LAND)}
+            className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 ${selectedType === PropertyType.LAND ? 'border-leroy-orange text-leroy-black' : 'border-transparent text-gray-400 hover:text-leroy-black'}`}
+          >
+            <LandPlot size={12} />
+            Terrenos
+          </button>
+          <button 
+            onClick={() => onToggleType(PropertyType.PARCEL)}
+            className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] transition-all border-b-2 ${selectedType === PropertyType.PARCEL ? 'border-leroy-orange text-leroy-black' : 'border-transparent text-gray-400 hover:text-leroy-black'}`}
+          >
+            <Trees size={12} />
+            Parcelas
+          </button>
           
-          {selectedCommunes.length > 0 && (
+          {(selectedCommunes.length > 0 || selectedType !== null) && (
             <button 
-              onClick={() => onToggleCommune(null)}
+              onClick={onClearFilters}
               className="ml-auto text-[8px] font-bold uppercase tracking-widest text-leroy-orange hover:text-leroy-black transition-colors"
             >
               Limpiar Filtros
@@ -124,21 +172,46 @@ const ListingView: React.FC<ListingViewProps> = ({
               className="group cursor-pointer fade-in"
               onClick={() => onPropertyClick(p.id)}
             >
-              <div className="aspect-[4/5] overflow-hidden mb-4 relative bg-white">
-                <img 
-                  src={p.imageUrl} 
-                  alt={p.title} 
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-leroy-black shadow-sm">
-                  {p.currency} {p.price.toLocaleString()}
-                </div>
-                {p.isPremium && (
-                  <div className="absolute top-6 right-6 bg-leroy-orange text-white px-3 py-1 text-[8px] font-bold uppercase tracking-widest shadow-sm">
-                    Premium
+              <div className="aspect-[4/5] flex flex-col overflow-hidden mb-4 relative bg-white border-4 border-leroy-orange shadow-md">
+                <div className="flex-grow overflow-hidden relative">
+                  <img 
+                    src={p.imageUrl} 
+                    alt={p.title} 
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-leroy-black shadow-sm">
+                    {p.currency} {p.price.toLocaleString()}
                   </div>
-                )}
+                  {p.isPremium && (
+                    <div className="absolute top-6 right-6 bg-leroy-orange text-white px-3 py-1 text-[8px] font-bold uppercase tracking-widest shadow-sm">
+                      Premium
+                    </div>
+                  )}
+                </div>
+                
+                {/* Property Stats Bar inside the frame */}
+                <div className="bg-white px-4 py-4 border-t border-leroy-orange/10 flex justify-between items-center">
+                  <div className="flex gap-4 text-gray-600">
+                    <div className="flex items-center gap-1.5" title="Dormitorios">
+                      <Bed size={16} className="text-leroy-orange" />
+                      <span className="text-[11px] font-bold">{p.bedrooms}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5" title="Baños">
+                      <Bath size={16} className="text-leroy-orange" />
+                      <span className="text-[11px] font-bold">{p.bathrooms}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5" title="Estacionamientos">
+                      <Car size={16} className="text-leroy-orange" />
+                      <span className="text-[11px] font-bold">{p.parking}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5" title="Superficie">
+                      <Maximize size={16} className="text-leroy-orange" />
+                      <span className="text-[11px] font-bold">{p.area}m²</span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-serif font-medium text-leroy-orange">LeRoy Residence</span>
+                </div>
               </div>
               <h3 className="text-2xl font-serif mb-1 group-hover:text-leroy-orange transition-colors duration-500">{p.title}</h3>
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">{p.subtitle}</p>
@@ -170,4 +243,3 @@ const ListingView: React.FC<ListingViewProps> = ({
 };
 
 export default ListingView;
-
