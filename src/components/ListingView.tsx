@@ -76,6 +76,8 @@ const ListingView: React.FC<ListingViewProps> = ({
 
   const currentHero = heroConfig[category] || heroConfig.all;
 
+  const isLand = (type: PropertyType) => type === PropertyType.LAND || type === PropertyType.PARCEL;
+
   return (
     <div className="bg-white min-h-screen">
       {/* Header Section for Listing - Clean White */}
@@ -166,61 +168,72 @@ const ListingView: React.FC<ListingViewProps> = ({
       {/* Grid Section */}
       <div className="py-6 px-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-10">
-          {filteredProperties.map((p) => (
-            <div 
-              key={p.id} 
-              className="group cursor-pointer fade-in"
-              onClick={() => onPropertyClick(p.id)}
-            >
-              <div className="aspect-[4/5] flex flex-col overflow-hidden mb-4 relative bg-white border-4 border-leroy-orange shadow-md">
-                <div className="flex-grow overflow-hidden relative">
-                  <img 
-                    src={p.imageUrl} 
-                    alt={p.title} 
-                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-leroy-black shadow-sm">
-                    {p.currency} {p.price.toLocaleString()}
+            {filteredProperties.map((p) => {
+              const landMode = isLand(p.type);
+              const accentColor = landMode ? 'leroy-green' : 'leroy-orange';
+              const borderColor = landMode ? 'border-leroy-green' : 'border-leroy-orange';
+              const textColor = landMode ? 'text-leroy-green' : 'text-leroy-orange';
+
+              return (
+                <div 
+                  key={p.id} 
+                  className="group cursor-pointer fade-in"
+                  onClick={() => onPropertyClick(p.id)}
+                >
+                  <div className={`aspect-[4/5] flex flex-col overflow-hidden mb-4 relative bg-white border-4 ${borderColor} shadow-md`}>
+                    <div className="flex-grow overflow-hidden relative">
+                      <img 
+                        src={p.imageUrl} 
+                        alt={p.title} 
+                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-leroy-black shadow-sm">
+                        {p.currency} {p.price.toLocaleString()}
+                      </div>
+                      {p.isPremium && (
+                        <div className={`absolute top-6 right-6 ${landMode ? 'bg-leroy-green' : 'bg-leroy-orange'} text-white px-3 py-1 text-[8px] font-bold uppercase tracking-widest shadow-sm`}>
+                          Premium
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Property Stats Bar inside the frame */}
+                    <div className={`bg-white px-4 py-4 border-t ${landMode ? 'border-leroy-green/10' : 'border-leroy-orange/10'} flex justify-between items-center`}>
+                      <div className="flex gap-4 text-gray-600">
+                        {!landMode && (
+                          <>
+                            <div className="flex items-center gap-1.5" title="Dormitorios">
+                              <Bed size={16} className={textColor} />
+                              <span className="text-[11px] font-bold">{p.bedrooms}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5" title="Baños">
+                              <Bath size={16} className={textColor} />
+                              <span className="text-[11px] font-bold">{p.bathrooms}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5" title="Estacionamientos">
+                              <Car size={16} className={textColor} />
+                              <span className="text-[11px] font-bold">{p.parking}</span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex items-center gap-1.5" title="Superficie">
+                          <Maximize size={16} className={textColor} />
+                          <span className="text-[11px] font-bold">{landMode ? (p.landArea || p.area) : p.area}m²</span>
+                        </div>
+                      </div>
+                      <span className={`text-[11px] font-serif font-medium ${textColor}`}>LeRoy Residence</span>
+                    </div>
                   </div>
-                  {p.isPremium && (
-                    <div className="absolute top-6 right-6 bg-leroy-orange text-white px-3 py-1 text-[8px] font-bold uppercase tracking-widest shadow-sm">
-                      Premium
-                    </div>
-                  )}
-                </div>
-                
-                {/* Property Stats Bar inside the frame */}
-                <div className="bg-white px-4 py-4 border-t border-leroy-orange/10 flex justify-between items-center">
-                  <div className="flex gap-4 text-gray-600">
-                    <div className="flex items-center gap-1.5" title="Dormitorios">
-                      <Bed size={16} className="text-leroy-orange" />
-                      <span className="text-[11px] font-bold">{p.bedrooms}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5" title="Baños">
-                      <Bath size={16} className="text-leroy-orange" />
-                      <span className="text-[11px] font-bold">{p.bathrooms}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5" title="Estacionamientos">
-                      <Car size={16} className="text-leroy-orange" />
-                      <span className="text-[11px] font-bold">{p.parking}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5" title="Superficie">
-                      <Maximize size={16} className="text-leroy-orange" />
-                      <span className="text-[11px] font-bold">{p.area}m²</span>
-                    </div>
+                  <h3 className={`text-2xl font-serif mb-1 group-hover:${textColor} transition-colors duration-500`}>{p.title}</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">{p.subtitle}</p>
+                  <div className="flex items-center gap-2 text-gray-400 border-t border-gray-50 pt-4">
+                    <MapPin size={14} className={textColor} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{p.location}</span>
                   </div>
-                  <span className="text-[11px] font-serif font-medium text-leroy-orange">LeRoy Residence</span>
                 </div>
-              </div>
-              <h3 className="text-2xl font-serif mb-1 group-hover:text-leroy-orange transition-colors duration-500">{p.title}</h3>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">{p.subtitle}</p>
-              <div className="flex items-center gap-2 text-gray-400 border-t border-gray-50 pt-4">
-                <MapPin size={14} className="text-leroy-orange" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">{p.location}</span>
-              </div>
-            </div>
-          ))}
+              );
+            })}
         </div>
 
         {filteredProperties.length === 0 && (
