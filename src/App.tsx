@@ -7,7 +7,7 @@ import ListingView from './components/ListingView';
 import AdminView from './components/AdminView';
 import AdminLoginView from './components/AdminLoginView';
 import PropertyDetailView from './components/PropertyDetailView';
-import { Property, HeroSearchState, ListingType } from './types';
+import { Property, HeroSearchState, ListingType, PropertyType } from './types';
 import { MOCK_PROPERTIES, COMMUNES } from './constants';
 import { interpretSearchQuery } from './services/geminiService';
 
@@ -15,9 +15,11 @@ const App: React.FC = () => {
   const [view, setView] = useState<'home' | 'real_estate' | 'admin' | 'detail'>('home');
   const [listingCategory, setListingCategory] = useState<'sale' | 'rent' | 'all'>('all');
   const [selectedCommunes, setSelectedCommunes] = useState<string[]>([]);
+  const [selectedType, setSelectedType] = useState<PropertyType | null>(null);
   
   // Persistencia: Cargar propiedades desde el servidor al iniciar
   const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -39,6 +41,8 @@ const App: React.FC = () => {
             // Keep MOCK_PROPERTIES
           }
         }
+      } finally {
+        setIsInitialLoadDone(true);
       }
     };
 
@@ -75,6 +79,8 @@ const App: React.FC = () => {
   }, []);
 
   const saveToServer = async (props: Property[]) => {
+    if (!isInitialLoadDone) return; // Prevent saving before initial load is complete
+    
     try {
       await fetch('/api/properties', {
         method: 'POST',
@@ -88,9 +94,11 @@ const App: React.FC = () => {
 
   // Guardar propiedades cada vez que cambien
   useEffect(() => {
-    localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
-    saveToServer(properties);
-  }, [properties]);
+    if (isInitialLoadDone) {
+      localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
+      saveToServer(properties);
+    }
+  }, [properties, isInitialLoadDone]);
 
   // Scroll to top on view change
   useEffect(() => {
@@ -108,10 +116,12 @@ const App: React.FC = () => {
       }
       
       setListingCategory('all');
+      setSelectedType(null);
       setView('real_estate');
     } catch (error) {
       console.error('Error en búsqueda:', error);
       setSelectedCommunes([searchState.location]);
+      setSelectedType(null);
       setView('real_estate');
     } finally {
       setIsSearching(false);
@@ -124,18 +134,22 @@ const App: React.FC = () => {
     } else if (label === 'Propiedades en Venta') {
       setListingCategory('sale');
       setSelectedCommunes([]);
+      setSelectedType(null);
       setView('real_estate');
     } else if (label === 'Propiedades en Arriendo') {
       setListingCategory('rent');
       setSelectedCommunes([]);
+      setSelectedType(null);
       setView('real_estate');
     } else if (COMMUNES.includes(label)) {
       setListingCategory('all');
       setSelectedCommunes([label]);
+      setSelectedType(null);
       setView('real_estate');
     } else {
       setListingCategory('all');
       setSelectedCommunes([]);
+      setSelectedType(null);
       setView('real_estate');
     }
   };
@@ -162,6 +176,7 @@ const App: React.FC = () => {
     }
     
     setSelectedCommunes([]); // Clear filters to ensure the new property is visible
+    setSelectedType(null);
     setView('real_estate');
   };
 
@@ -183,14 +198,17 @@ const App: React.FC = () => {
     } else if (v === 'real_estate_sale') {
       setListingCategory('sale');
       setSelectedCommunes([]);
+      setSelectedType(null);
       setView('real_estate');
     } else if (v === 'real_estate_rent') {
       setListingCategory('rent');
       setSelectedCommunes([]);
+      setSelectedType(null);
       setView('real_estate');
     } else if (v === 'real_estate') {
       setListingCategory('all');
       setSelectedCommunes([]);
+      setSelectedType(null);
       setView('real_estate');
     } else {
       setView(v as any);
@@ -265,6 +283,7 @@ const App: React.FC = () => {
             category={listingCategory} 
             properties={properties} 
             selectedCommunes={selectedCommunes}
+            selectedType={selectedType}
             onToggleCommune={(commune) => {
               if (commune === null) {
                 setSelectedCommunes([]);
@@ -276,9 +295,17 @@ const App: React.FC = () => {
                 );
               }
             }}
-            onClearFilters={() => setSelectedCommunes([])} 
+            onToggleType={(type) => setSelectedType(type)}
+            onClearFilters={() => {
+              setSelectedCommunes([]);
+              setSelectedType(null);
+            }} 
             onPropertyClick={navigateToDetail}
-            onGoHome={() => { setView('home'); setSelectedCommunes([]); }}
+            onGoHome={() => { 
+              setView('home'); 
+              setSelectedCommunes([]); 
+              setSelectedType(null);
+            }}
           />
         )}
 
