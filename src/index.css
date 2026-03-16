@@ -6,6 +6,7 @@
   --font-serif: "Playfair Display", serif;
   
   --color-leroy-orange: #FF5C00;
+  --color-leroy-green: #2D5A27;
   --color-leroy-black: #0A0A0A;
   --color-leroy-gray: #F9F9F9;
   
@@ -57,4 +58,3 @@
     scrollbar-width: none;
   }
 }
-
