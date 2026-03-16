@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+ Aimport React, { useState } from 'react';
 import { Property, PropertyType, ListingType } from '../types';
 import { Plus, X, Download, Share2, Globe, Edit, Trash2, Search, Bed, Bath, Car, Maximize } from 'lucide-react';
 import { COMMUNES } from '../constants';
@@ -389,34 +389,45 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
                       onChange={e => setFormData({...formData, imageUrl: e.target.value})}
                     />
                   </div>
-                  {formData.imageUrl && (
-                    <div className="mt-2 aspect-video w-full flex flex-col overflow-hidden bg-gray-50 border-4 border-leroy-orange shadow-lg">
-                      <div className="flex-grow overflow-hidden relative">
-                        <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="bg-white px-4 py-3 border-t border-leroy-orange/10 flex justify-between items-center">
-                        <div className="flex gap-4 text-gray-600">
-                          <div className="flex items-center gap-1.5">
-                            <Bed size={14} className="text-leroy-orange" />
-                            <span className="text-[10px] font-bold">{formData.bedrooms}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Bath size={14} className="text-leroy-orange" />
-                            <span className="text-[10px] font-bold">{formData.bathrooms}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Car size={14} className="text-leroy-orange" />
-                            <span className="text-[10px] font-bold">{formData.parking}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Maximize size={14} className="text-leroy-orange" />
-                            <span className="text-[10px] font-bold">{formData.area}m²</span>
-                          </div>
+                  {formData.imageUrl && (() => {
+                    const landMode = formData.type === PropertyType.LAND || formData.type === PropertyType.PARCEL;
+                    const accentColor = landMode ? 'leroy-green' : 'leroy-orange';
+                    const borderColor = landMode ? 'border-leroy-green' : 'border-leroy-orange';
+                    const textColor = landMode ? 'text-leroy-green' : 'text-leroy-orange';
+
+                    return (
+                      <div className={`mt-2 aspect-video w-full flex flex-col overflow-hidden bg-gray-50 border-4 ${borderColor} shadow-lg`}>
+                        <div className="flex-grow overflow-hidden relative">
+                          <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
                         </div>
-                        <span className="text-[10px] font-serif font-medium text-leroy-orange">LeRoy Residence</span>
+                        <div className={`bg-white px-4 py-3 border-t ${landMode ? 'border-leroy-green/10' : 'border-leroy-orange/10'} flex justify-between items-center`}>
+                          <div className="flex gap-4 text-gray-600">
+                            {!landMode && (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <Bed size={14} className={textColor} />
+                                  <span className="text-[10px] font-bold">{formData.bedrooms}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Bath size={14} className={textColor} />
+                                  <span className="text-[10px] font-bold">{formData.bathrooms}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Car size={14} className={textColor} />
+                                  <span className="text-[10px] font-bold">{formData.parking}</span>
+                                </div>
+                              </>
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              <Maximize size={14} className={textColor} />
+                              <span className="text-[10px] font-bold">{landMode ? (formData.landArea || formData.area) : formData.area}m²</span>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-serif font-medium ${textColor}`}>LeRoy Residence</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -690,14 +701,4 @@ const MarketingSection: React.FC<{ properties: Property[] }> = ({ properties }) 
               <h3 className="font-serif text-2xl mb-2">Social Media Ready</h3>
               <p className="text-sm text-gray-500 leading-relaxed">
                 Cada propiedad tiene etiquetas <strong>Open Graph</strong> dinámicas. Al compartir el link en Instagram o Facebook, 
-                se mostrará automáticamente la foto, el título y el precio de la propiedad.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-};
-
-export default AdminView;
+dminView;
