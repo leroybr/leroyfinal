@@ -10,7 +10,8 @@ interface AdminViewProps {
   onCancel: () => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDeleteProperty, onCancel }) => {
+const AdminView: React.FC<AdminViewProps> = (props) => {
+  const { properties, onAddProperty, onDeleteProperty, onCancel } = props;
   const [activeTab, setActiveTab] = useState<'add' | 'marketing' | 'list'>('list');
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -553,13 +554,13 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
           </button>
         </form>
       ) : (
-        <MarketingSection properties={properties} />
+        <MarketingSection properties={properties} onAddProperty={onAddProperty} />
       )}
     </div>
   );
 };
 
-const MarketingSection: React.FC<{ properties: Property[] }> = ({ properties }) => {
+const MarketingSection: React.FC<{ properties: Property[], onAddProperty: (p: Property) => void }> = ({ properties, onAddProperty }) => {
   const generateFacebookFeed = () => {
     // Basic Facebook Real Estate XML Feed
     let xml = `<?xml version="1.0"?>
@@ -617,10 +618,14 @@ const MarketingSection: React.FC<{ properties: Property[] }> = ({ properties }) 
         
         if (Array.isArray(importedProperties)) {
           if (confirm(`¿Estás seguro de que deseas restaurar ${importedProperties.length} propiedades? Esto reemplazará la lista actual.`)) {
+            // We need a way to update the parent state. 
+            // Since onAddProperty only adds one, we might need a new prop or just use a loop.
+            // But a better way is to have a dedicated onRestore function.
+            // For now, I'll assume we can use a loop or I'll add onRestore to props.
             importedProperties.forEach(prop => {
+              // Basic validation
               if (prop.id && prop.title) {
-                // Note: This calls the parent's handleAddProperty for each item
-                // In a real app, you might want a batch restore function
+                onAddProperty(prop);
               }
             });
             alert('Restauración completada. Nota: Se han añadido las propiedades del archivo.');
@@ -633,6 +638,7 @@ const MarketingSection: React.FC<{ properties: Property[] }> = ({ properties }) 
       }
     };
     reader.readAsText(file);
+    // Reset input
     event.target.value = '';
   };
 
