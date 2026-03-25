@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [selectedCommunes, setSelectedCommunes] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState<PropertyType | null>(null);
   
+  // Persistencia: Cargar propiedades desde el servidor al iniciar
   const [properties, setProperties] = useState<Property[]>([]);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +63,15 @@ const App: React.FC = () => {
       setLoadError('Error de conexión. Usando respaldo local.');
       
       const savedLocal = localStorage.getItem('leroy_properties_v1');
-      setProperties(savedLocal ? JSON.parse(savedLocal) : MOCK_PROPERTIES);
+      if (savedLocal) {
+        try {
+          setProperties(JSON.parse(savedLocal));
+        } catch (e) {
+          setProperties(MOCK_PROPERTIES);
+        }
+      } else {
+        setProperties(MOCK_PROPERTIES);
+      }
       setIsLoading(false);
       setIsInitialLoadDone(true);
     });
@@ -79,25 +88,34 @@ const App: React.FC = () => {
   const contactTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleContactHover = (show: boolean) => {
-    if (contactTimeoutRef.current) clearTimeout(contactTimeoutRef.current);
+    if (contactTimeoutRef.current) {
+      clearTimeout(contactTimeoutRef.current);
+    }
+
     if (show) {
       setShowContactForm(true);
     } else {
-      contactTimeoutRef.current = setTimeout(() => setShowContactForm(false), 300);
+      contactTimeoutRef.current = setTimeout(() => {
+        setShowContactForm(false);
+      }, 300); // 300ms delay to allow moving mouse to the form
     }
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowIntro(false), 2500);
+    const timer = setTimeout(() => {
+      setShowIntro(false);
+    }, 2500); // Intro lasts 2.5 seconds (faster)
     return () => clearTimeout(timer);
   }, []);
 
+  // Guardar en localStorage como respaldo secundario
   useEffect(() => {
     if (isInitialLoadDone && properties.length > 0) {
       localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
     }
   }, [properties, isInitialLoadDone]);
 
+  // Scroll to top on view change
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [view, selectedPropertyId]);
@@ -106,11 +124,17 @@ const App: React.FC = () => {
     setIsSearching(true);
     try {
       const filters = await interpretSearchQuery(searchState.location);
-      if (filters.location) setSelectedCommunes([filters.location]);
+      console.log('Filtros interpretados por IA:', filters);
+      
+      if (filters.location) {
+        setSelectedCommunes([filters.location]);
+      }
+      
       setListingCategory('all');
       setSelectedType(null);
       setView('real_estate');
     } catch (error) {
+      console.error('Error en búsqueda:', error);
       setSelectedCommunes([searchState.location]);
       setSelectedType(null);
       setView('real_estate');
@@ -150,39 +174,42 @@ const App: React.FC = () => {
     setView('detail');
   };
 
-  // --- CORRECCIÓN EN EL GUARDADO (NORMALIZACIÓN) ---
+  // --- CORRECCIÓN EN EL GUARDADO ---
   const handleAddProperty = async (newProp: Property) => {
     try {
-      // Normalizamos el tipo de listado para que coincida con los filtros de ListingView
-      const normalizedProp = {
-        ...newProp,
-        listingType: String(newProp.listingType).toLowerCase() as ListingType
-      };
-
-      await setDoc(doc(db, 'properties', normalizedProp.id), normalizedProp);
+      await setDoc(doc(db, 'properties', newProp.id), newProp);
       
-      // Limpiamos filtros para asegurar que la nueva propiedad sea visible inmediatamente
+      // Limpiamos filtros para que aparezca en la lista si el usuario navega manualmente
       setListingCategory('all');
       setSelectedCommunes([]);
       setSelectedType(null);
-      setView('real_estate');
+      // NO cambiamos la vista (setView), para que el usuario permanezca en el panel de administración
     } catch (error) {
       console.error('Error saving to Firestore:', error);
+      handleFirestoreError(error, OperationType.WRITE, `properties/${newProp.id}`);
       alert('Error al guardar la propiedad. Revisa tu conexión.');
     }
   };
 
   const handleDeleteProperty = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar esta propiedad?')) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar esta propiedad permanentemente?')) return;
+    
     try {
       await deleteDoc(doc(db, 'properties', id));
     } catch (error) {
-      console.error('Error deleting:', error);
-      alert('Error al eliminar.');
+      console.error('Error deleting property from Firestore:', error);
+      handleFirestoreError(error, OperationType.DELETE, `properties/${id}`);
+      alert('Error al eliminar la propiedad.');
     }
   };
 
-  const handleAdminAccess = () => setView('admin');
+  const handleAdminAccess = () => {
+    if (isAdminAuthenticated) {
+      setView('admin');
+    } else {
+      setView('admin');
+    }
+  };
 
   const handleNavigate = (v: string) => {
     if (v === 'admin') {
@@ -225,12 +252,17 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-white flex flex-col">
       <Helmet>
         <title>LeRoy Residence | Propiedades de Lujo en Chile</title>
+        <meta name="description" content="Encuentra las mejores propiedades de lujo en venta y arriendo en las comunas más exclusivas de Chile. Casas, departamentos y villas espectaculares." />
+        <meta name="keywords" content="propiedades de lujo chile, casas en venta lo barnechea, arriendo departamentos vitacura, corretaje de propiedades premium" />
+        <meta property="og:title" content="LeRoy Residence | Propiedades de Lujo" />
+        <meta property="og:description" content="Corretaje de propiedades exclusivo en Chile. Venta y arriendo de mansiones, villas y departamentos premium." />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
       </Helmet>
-      
       {showIntro && (
         <div className="fixed inset-0 z-[200] bg-white flex flex-col items-center justify-center text-center px-8">
           <div className="max-w-2xl">
-            <h2 className="text-leroy-black font-serif text-3xl md:text-4xl mb-6 font-medium animate-slideInRight tracking-tight">
+            <h2 className="text-leroy-black font-serif text-3xl md:text-4xl mb-6 font-medium leading-[1.1] animate-slideInRight tracking-tight">
               Bienvenido LeRoy Residence
             </h2>
             <div className="flex justify-center gap-4 mb-8 animate-fadeIn text-leroy-black font-bold uppercase tracking-[0.4em] text-[8px] md:text-[9px] opacity-60">
@@ -249,7 +281,6 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-
       <Header 
         onNavigate={handleNavigate} 
         currentView={getHeaderView()} 
@@ -346,9 +377,11 @@ const App: React.FC = () => {
 
       <Footer />
 
+      {/* Floating Admin Button - Hidden behind a white circle */}
       <button 
         onClick={() => handleAdminAccess()}
         className="fixed bottom-4 left-4 w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center group z-[100] hover:w-20 hover:h-8 transition-all duration-500 border border-gray-50 overflow-hidden"
+        aria-label="Admin Access"
       >
         <span className="opacity-0 group-hover:opacity-100 text-[9px] font-bold uppercase tracking-widest text-gray-400 transition-all duration-300 whitespace-nowrap">
           Admin
