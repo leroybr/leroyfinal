@@ -63,6 +63,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
   }, [formData, activeTab, editingPropertyId]);
 
   const [isProcessingImages, setIsProcessingImages] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -175,7 +176,11 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     localStorage.removeItem('leroy_property_draft');
     setFormData(initialFormState);
     setEditingPropertyId(null);
+    setSaveSuccess(true);
     setActiveTab('list');
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   const handleEdit = (p: Property) => {
@@ -255,6 +260,11 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
       {activeTab === 'list' && (
         <div className="space-y-6 animate-fadeIn">
+          {saveSuccess && (
+            <div className="bg-green-50 text-green-600 text-[10px] font-bold uppercase tracking-[0.3em] py-4 px-6 border border-green-100 animate-fadeIn">
+              Propiedad guardada con éxito en la base de datos
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
