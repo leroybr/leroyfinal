@@ -10,11 +10,8 @@ import PropertyDetailView from './components/PropertyDetailView';
 import { Property, HeroSearchState, ListingType, PropertyType } from './types';
 import { MOCK_PROPERTIES, COMMUNES } from './constants';
 import { interpretSearchQuery } from './services/geminiService';
-<<<<<<< HEAD
-=======
 import { db, handleFirestoreError, OperationType } from './firebase';
 import { collection, onSnapshot, query, orderBy, doc, setDoc, deleteDoc } from 'firebase/firestore';
->>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
 
 const App: React.FC = () => {
   const [view, setView] = useState<'home' | 'real_estate' | 'admin' | 'detail'>('home');
@@ -28,54 +25,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-<<<<<<< HEAD
-  useEffect(() => {
-    const fetchProperties = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const response = await fetch('/api/properties');
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            if (data.length > 0) {
-              setProperties(data);
-            } else {
-              // Si el servidor está vacío (primera vez), usamos los mocks
-              setProperties(MOCK_PROPERTIES);
-            }
-            setIsInitialLoadDone(true);
-          } else {
-            throw new Error('Formato de datos inválido');
-          }
-        } else {
-          throw new Error('Error al conectar con el servidor');
-        }
-      } catch (error) {
-        console.error('Error fetching properties:', error);
-        // Fallback a localStorage si el servidor falla
-        const saved = localStorage.getItem('leroy_properties_v1');
-        if (saved) {
-          try {
-            setProperties(JSON.parse(saved));
-            setIsInitialLoadDone(true);
-          } catch (e) {
-            setProperties(MOCK_PROPERTIES);
-            setIsInitialLoadDone(true);
-          }
-        } else {
-          // Si no hay nada en server ni en local, usamos mocks
-          setProperties(MOCK_PROPERTIES);
-          setIsInitialLoadDone(true);
-        }
-        setLoadError('No se pudo sincronizar con el servidor. Los cambios se guardarán localmente.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProperties();
-=======
   // --- CORRECCIÓN EN LA CARGA DE DATOS ---
   useEffect(() => {
     setIsLoading(true);
@@ -128,7 +77,6 @@ const App: React.FC = () => {
     });
 
     return () => unsubscribe();
->>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
   }, []);
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -160,36 +108,10 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-<<<<<<< HEAD
-  const saveToServer = async (props: Property[]) => {
-    if (!isInitialLoadDone) return;
-    
-    try {
-      const response = await fetch('/api/properties', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(props)
-      });
-      if (!response.ok) {
-        throw new Error('Error al guardar en el servidor');
-      }
-    } catch (error) {
-      console.error('Error saving to server:', error);
-      // No alertamos cada vez para no molestar, pero el error queda en consola
-    }
-  };
-
-  // Guardar propiedades cada vez que cambien
-  useEffect(() => {
-    if (isInitialLoadDone) {
-      localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
-      saveToServer(properties);
-=======
   // Guardar en localStorage como respaldo secundario
   useEffect(() => {
     if (isInitialLoadDone && properties.length > 0) {
       localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
->>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
     }
   }, [properties, isInitialLoadDone]);
 
@@ -252,31 +174,6 @@ const App: React.FC = () => {
     setView('detail');
   };
 
-<<<<<<< HEAD
-  const handleAddProperty = (newProp: Property) => {
-    setProperties(prev => {
-      const exists = prev.find(p => p.id === newProp.id);
-      if (exists) {
-        return prev.map(p => p.id === newProp.id ? newProp : p);
-      }
-      return [newProp, ...prev];
-    });
-    
-    // Automatically set the category to match the new property's type
-    if (newProp.listingType === ListingType.SALE || String(newProp.listingType).toLowerCase() === 'venta') {
-      setListingCategory('sale');
-    } else if (newProp.listingType === ListingType.RENT || String(newProp.listingType).toLowerCase() === 'arriendo') {
-      setListingCategory('rent');
-    }
-    
-    setSelectedCommunes([]); // Clear filters to ensure the new property is visible
-    setSelectedType(null);
-    setView('real_estate');
-  };
-
-  const handleDeleteProperty = (id: string) => {
-    setProperties(prev => prev.filter(p => p.id !== id));
-=======
   // --- CORRECCIÓN EN EL GUARDADO ---
   const handleAddProperty = async (newProp: Property) => {
     try {
@@ -304,7 +201,6 @@ const App: React.FC = () => {
       handleFirestoreError(error, OperationType.DELETE, `properties/${id}`);
       alert('Error al eliminar la propiedad.');
     }
->>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
   };
 
   const handleAdminAccess = () => {
@@ -495,8 +391,4 @@ const App: React.FC = () => {
   );
 };
 
-<<<<<<< HEAD
 export default App;
-=======
-export default App;
->>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089

@@ -3,6 +3,13 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs";
 import cors from "cors";
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import firebaseConfig from './src/firebase-applet-config.json';
+
+// Initialize Firebase for the server (to fetch feeds)
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 async function startServer() {
   const app = express();
@@ -25,37 +32,29 @@ async function startServer() {
   }
 
   // API Routes
-  app.get("/api/properties", (req, res) => {
+  app.get("/api/properties", async (req, res) => {
     try {
-      if (!fs.existsSync(PROPERTIES_FILE)) {
-        return res.json([]);
-      }
-      const data = fs.readFileSync(PROPERTIES_FILE, 'utf-8');
-      if (!data.trim()) {
-        return res.json([]);
-      }
-      res.json(JSON.parse(data));
+      const q = query(collection(db, 'properties'), orderBy('id', 'desc'));
+      const snapshot = await getDocs(q);
+      const properties = snapshot.docs.map(doc => doc.data());
+      res.json(properties);
     } catch (error) {
-      console.error("Error parsing properties:", error);
-      res.json([]); // Return empty array on error instead of 500
+      console.error("Error fetching properties from Firestore:", error);
+      res.json([]);
     }
   });
 
   app.post("/api/properties", (req, res) => {
-    try {
-      const properties = req.body;
-      fs.writeFileSync(PROPERTIES_FILE, JSON.stringify(properties, null, 2));
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to save properties" });
-    }
+    // This endpoint is now deprecated in favor of direct Firestore writes from client
+    res.status(410).json({ error: "Use direct Firestore writes" });
   });
 
   // Feeds for Portals
-  app.get("/api/feeds/facebook.xml", (req, res) => {
+  app.get("/api/feeds/facebook.xml", async (req, res) => {
     try {
-      const data = fs.readFileSync(PROPERTIES_FILE, 'utf-8');
-      const properties = JSON.parse(data);
+      const q = query(collection(db, 'properties'), orderBy('id', 'desc'));
+      const snapshot = await getDocs(q);
+      const properties = snapshot.docs.map(doc => doc.data());
       
       let xml = `<?xml version="1.0"?>
 <listings>
@@ -90,10 +89,11 @@ async function startServer() {
   });
 
   // Generic XML Feed for other portals (like Portal Inmobiliario / TocToc style)
-  app.get("/api/feeds/universal.xml", (req, res) => {
+  app.get("/api/feeds/universal.xml", async (req, res) => {
     try {
-      const data = fs.readFileSync(PROPERTIES_FILE, 'utf-8');
-      const properties = JSON.parse(data);
+      const q = query(collection(db, 'properties'), orderBy('id', 'desc'));
+      const snapshot = await getDocs(q);
+      const properties = snapshot.docs.map(doc => doc.data());
       
       let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <property_feed>
