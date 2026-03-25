@@ -129,6 +129,7 @@ const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({ property, onGoH
               <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[8px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">WhatsApp</span>
             </button>
             <button 
+<<<<<<< HEAD
               onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank')}
               className="p-2 border border-gray-100 rounded-full hover:border-blue-600 hover:text-blue-600 transition-all group relative"
               title="Compartir en Facebook"
@@ -145,6 +146,8 @@ const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({ property, onGoH
               <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-[8px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Instagram</span>
             </button>
             <button 
+=======
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
               onClick={handleCopyLink}
               className="p-2 border border-gray-100 rounded-full hover:border-leroy-orange hover:text-leroy-orange transition-all group relative"
               title="Copiar Link"
@@ -154,12 +157,20 @@ const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({ property, onGoH
                 {copied ? 'Copiado!' : 'Copiar Link'}
               </span>
             </button>
+<<<<<<< HEAD
+=======
+            <button className="p-2 border border-gray-100 rounded-full hover:border-leroy-orange hover:text-leroy-orange transition-all"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg></button>
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
         </div>
       </div>
 
       {/* Main Gallery Grid */}
       <div className="max-w-7xl mx-auto px-8 mb-3 grid grid-cols-1 md:grid-cols-4 gap-1.5 h-[350px]">
+<<<<<<< HEAD
           <div className="md:col-span-2 overflow-hidden cursor-pointer border-4 border-leroy-orange shadow-lg" onClick={() => setSelectedImage(galleryImages[0])}>
+=======
+          <div className="md:col-span-2 overflow-hidden cursor-pointer" onClick={() => setSelectedImage(galleryImages[0])}>
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
             <img src={galleryImages[0]} className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" referrerPolicy="no-referrer" />
           </div>
           <div className="md:col-span-2 grid grid-cols-2 gap-1.5">

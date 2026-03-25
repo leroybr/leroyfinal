@@ -10,7 +10,12 @@ interface AdminViewProps {
   onCancel: () => void;
 }
 
+<<<<<<< HEAD
 const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDeleteProperty, onCancel }) => {
+=======
+const AdminView: React.FC<AdminViewProps> = (props) => {
+  const { properties, onAddProperty, onDeleteProperty, onCancel } = props;
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
   const [activeTab, setActiveTab] = useState<'add' | 'marketing' | 'list'>('list');
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,6 +67,10 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
   }, [formData, activeTab, editingPropertyId]);
 
   const [isProcessingImages, setIsProcessingImages] = useState(false);
+<<<<<<< HEAD
+=======
+  const [saveSuccess, setSaveSuccess] = useState(false);
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
 
   const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -174,7 +183,15 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
     localStorage.removeItem('leroy_property_draft');
     setFormData(initialFormState);
     setEditingPropertyId(null);
+<<<<<<< HEAD
     setActiveTab('list');
+=======
+    setSaveSuccess(true);
+    setActiveTab('list');
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => setSaveSuccess(false), 3000);
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
   };
 
   const handleEdit = (p: Property) => {
@@ -254,6 +271,14 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
 
       {activeTab === 'list' && (
         <div className="space-y-6 animate-fadeIn">
+<<<<<<< HEAD
+=======
+          {saveSuccess && (
+            <div className="bg-green-50 text-green-600 text-[10px] font-bold uppercase tracking-[0.3em] py-4 px-6 border border-green-100 animate-fadeIn">
+              Propiedad guardada con éxito en la base de datos
+            </div>
+          )}
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
@@ -553,13 +578,21 @@ const AdminView: React.FC<AdminViewProps> = ({ properties, onAddProperty, onDele
           </button>
         </form>
       ) : (
+<<<<<<< HEAD
         <MarketingSection properties={properties} />
+=======
+        <MarketingSection properties={properties} onAddProperty={onAddProperty} />
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
       )}
     </div>
   );
 };
 
+<<<<<<< HEAD
 const MarketingSection: React.FC<{ properties: Property[] }> = ({ properties }) => {
+=======
+const MarketingSection: React.FC<{ properties: Property[], onAddProperty: (p: Property) => void }> = ({ properties, onAddProperty }) => {
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
   const generateFacebookFeed = () => {
     // Basic Facebook Real Estate XML Feed
     let xml = `<?xml version="1.0"?>

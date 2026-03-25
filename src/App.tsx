@@ -10,6 +10,11 @@ import PropertyDetailView from './components/PropertyDetailView';
 import { Property, HeroSearchState, ListingType, PropertyType } from './types';
 import { MOCK_PROPERTIES, COMMUNES } from './constants';
 import { interpretSearchQuery } from './services/geminiService';
+<<<<<<< HEAD
+=======
+import { db, handleFirestoreError, OperationType } from './firebase';
+import { collection, onSnapshot, query, orderBy, doc, setDoc, deleteDoc } from 'firebase/firestore';
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
 
 const App: React.FC = () => {
   const [view, setView] = useState<'home' | 'real_estate' | 'admin' | 'detail'>('home');
@@ -23,6 +28,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+<<<<<<< HEAD
   useEffect(() => {
     const fetchProperties = async () => {
       setIsLoading(true);
@@ -69,6 +75,60 @@ const App: React.FC = () => {
     };
 
     fetchProperties();
+=======
+  // --- CORRECCIÓN EN LA CARGA DE DATOS ---
+  useEffect(() => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    const q = query(collection(db, 'properties'), orderBy('id', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const props: Property[] = [];
+      snapshot.forEach((doc) => {
+        props.push(doc.data() as Property);
+      });
+
+      // Si hay datos en Firebase, los usamos exclusivamente
+      if (props.length > 0) {
+        setProperties(props);
+      } else {
+        // Solo si Firebase está REALMENTE vacío, intentamos cargar locales o mocks
+        const savedLocal = localStorage.getItem('leroy_properties_v1');
+        if (savedLocal) {
+          try {
+            const parsed = JSON.parse(savedLocal);
+            setProperties(parsed.length > 0 ? parsed : MOCK_PROPERTIES);
+          } catch (e) {
+            setProperties(MOCK_PROPERTIES);
+          }
+        } else {
+          setProperties(MOCK_PROPERTIES);
+        }
+      }
+      
+      setIsLoading(false);
+      setIsInitialLoadDone(true);
+    }, (error) => {
+      console.error('Firestore error:', error);
+      setLoadError('Error de conexión. Usando respaldo local.');
+      
+      const savedLocal = localStorage.getItem('leroy_properties_v1');
+      if (savedLocal) {
+        try {
+          setProperties(JSON.parse(savedLocal));
+        } catch (e) {
+          setProperties(MOCK_PROPERTIES);
+        }
+      } else {
+        setProperties(MOCK_PROPERTIES);
+      }
+      setIsLoading(false);
+      setIsInitialLoadDone(true);
+    });
+
+    return () => unsubscribe();
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
   }, []);
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -100,6 +160,7 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+<<<<<<< HEAD
   const saveToServer = async (props: Property[]) => {
     if (!isInitialLoadDone) return;
     
@@ -123,6 +184,12 @@ const App: React.FC = () => {
     if (isInitialLoadDone) {
       localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
       saveToServer(properties);
+=======
+  // Guardar en localStorage como respaldo secundario
+  useEffect(() => {
+    if (isInitialLoadDone && properties.length > 0) {
+      localStorage.setItem('leroy_properties_v1', JSON.stringify(properties));
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
     }
   }, [properties, isInitialLoadDone]);
 
@@ -185,6 +252,7 @@ const App: React.FC = () => {
     setView('detail');
   };
 
+<<<<<<< HEAD
   const handleAddProperty = (newProp: Property) => {
     setProperties(prev => {
       const exists = prev.find(p => p.id === newProp.id);
@@ -208,6 +276,35 @@ const App: React.FC = () => {
 
   const handleDeleteProperty = (id: string) => {
     setProperties(prev => prev.filter(p => p.id !== id));
+=======
+  // --- CORRECCIÓN EN EL GUARDADO ---
+  const handleAddProperty = async (newProp: Property) => {
+    try {
+      await setDoc(doc(db, 'properties', newProp.id), newProp);
+      
+      // Limpiamos filtros para que aparezca en la lista si el usuario navega manualmente
+      setListingCategory('all');
+      setSelectedCommunes([]);
+      setSelectedType(null);
+      // NO cambiamos la vista (setView), para que el usuario permanezca en el panel de administración
+    } catch (error) {
+      console.error('Error saving to Firestore:', error);
+      handleFirestoreError(error, OperationType.WRITE, `properties/${newProp.id}`);
+      alert('Error al guardar la propiedad. Revisa tu conexión.');
+    }
+  };
+
+  const handleDeleteProperty = async (id: string) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta propiedad permanentemente?')) return;
+    
+    try {
+      await deleteDoc(doc(db, 'properties', id));
+    } catch (error) {
+      console.error('Error deleting property from Firestore:', error);
+      handleFirestoreError(error, OperationType.DELETE, `properties/${id}`);
+      alert('Error al eliminar la propiedad.');
+    }
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
   };
 
   const handleAdminAccess = () => {
@@ -398,4 +495,8 @@ const App: React.FC = () => {
   );
 };
 
+<<<<<<< HEAD
 export default App;
+=======
+export default App;
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089

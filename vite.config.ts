@@ -10,7 +10,10 @@ const __dirname = path.dirname(__filename);
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
+<<<<<<< HEAD
     base: './', // Esto solo sirve para que la web no se vea en blanco, no cambia el diseño.
+=======
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ""),
@@ -21,10 +24,18 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+<<<<<<< HEAD
+=======
+      // HMR is disabled in AI Studio via DISABLE_HMR env var.
+      // Do not modify—file watching is disabled to prevent flickering during agent edits.
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
       hmr: process.env.DISABLE_HMR !== 'true',
       port: 3000,
       host: '0.0.0.0',
     },
   };
 });
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2bfa4ec5f371c79c3607eb74b14bf174f2148089
