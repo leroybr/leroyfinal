@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "Property": {
+      "title": "Property",
+      "description": "A real estate property listing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "location": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "type": { "type": "string" },
+        "listingType": { "type": "string" }
+      },
+      "required": ["id", "title", "location", "price", "currency", "imageUrl", "type", "listingType"]
+    }
+  },
+  "firestore": {
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Collection of property listings"
+    }
+  }
+}
