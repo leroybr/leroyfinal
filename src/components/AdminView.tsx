@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Property, PropertyType, ListingType } from '../types';
-import { Plus, X, Download, Share2, Globe, Edit, Trash2, Search, Bed, Bath, Car, Maximize } from 'lucide-react';
+import { Plus, X, Download, Share2, Globe, Edit, Trash2, Search, Bed, Bath, Car, Maximize, LogOut, User, Copy } from 'lucide-react';
 import { COMMUNES } from '../constants';
+import { auth, db } from '../firebase';
+import { doc, getDocFromServer } from 'firebase/firestore';
 
 interface AdminViewProps {
   properties: Property[];
@@ -16,6 +18,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
+  const currentUser = auth.currentUser;
   const initialFormState = {
     title: '',
     subtitle: '',
@@ -37,6 +40,26 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
   };
 
   const [formData, setFormData] = useState(initialFormState);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+
+  const checkCloudConnection = async () => {
+    setIsTestingConnection(true);
+    try {
+      // Intentamos leer un documento de prueba del servidor
+      await getDocFromServer(doc(db, 'test', 'connection'));
+      setIsCloudConnected(true);
+    } catch (error) {
+      console.error('Cloud connection test failed:', error);
+      setIsCloudConnected(false);
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  React.useEffect(() => {
+    checkCloudConnection();
+  }, []);
 
   // Draft System: Load draft on mount
   React.useEffect(() => {
@@ -65,7 +88,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
   const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+  const resizeImage = (file: File, maxWidth: number, maxHeight: number, quality: number = 0.5): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -77,12 +100,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
           let width = img.width;
           let height = img.height;
 
-          // No redimensionar si la imagen ya es más pequeña que el máximo
-          if (width <= maxWidth && height <= maxHeight) {
-            resolve(img.src);
-            return;
-          }
-
           const ratio = Math.min(maxWidth / width, maxHeight / height);
           width = width * ratio;
           height = height * ratio;
@@ -91,15 +108,13 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           
-          // Suavizado de imagen para mejor calidad
           if (ctx) {
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, width, height);
           }
           
-          // Export as JPEG with 0.7 quality to save significant space
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
           resolve(dataUrl);
         };
         img.onerror = reject;
@@ -115,14 +130,14 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     setIsProcessingImages(true);
     try {
       if (field === 'main') {
-        const resized = await resizeImage(files[0], 1600, 1200);
+        const resized = await resizeImage(files[0], 1024, 768, 0.6);
         setFormData(prev => ({ ...prev, imageUrl: resized }));
       } else {
         const fileList = Array.from(files);
         const newImages: { category: string, imageUrl: string }[] = [];
         
         for (let i = 0; i < fileList.length; i++) {
-          const resized = await resizeImage(fileList[i], 1200, 900);
+          const resized = await resizeImage(fileList[i], 800, 600, 0.5);
           newImages.push({ 
             category: `Imagen ${formData.categoryImages.length + i + 1}`, 
             imageUrl: resized 
@@ -148,45 +163,78 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newProperty: Property = {
-      id: editingPropertyId || Date.now().toString(),
-      title: formData.title,
-      subtitle: formData.subtitle,
-      location: `${formData.location.split(',')[0]}, Chile`,
-      price: parseFloat(formData.price) || 0,
-      currency: formData.currency,
-      imageUrl: formData.imageUrl || 'https://picsum.photos/seed/new/1200/1500',
-      categoryImages: formData.categoryImages,
-      bedrooms: parseInt(formData.bedrooms) || 0,
-      bathrooms: parseInt(formData.bathrooms) || 0,
-      area: parseInt(formData.area) || 0,
-      landArea: parseInt(formData.landArea) || 0,
-      parking: parseInt(formData.parking) || 0,
-      type: formData.type,
-      listingType: formData.listingType,
-      description: formData.description,
-      amenities: formData.amenities.split(',').map(a => a.trim()).filter(a => a !== ''),
-      isPremium: formData.isPremium
-    };
-    onAddProperty(newProperty);
-    
-    // Reset form, clear draft and go back to list
-    localStorage.removeItem('leroy_property_draft');
-    setFormData(initialFormState);
-    setEditingPropertyId(null);
-    setSaveSuccess(true);
-    setActiveTab('list');
-    
-    // Clear success message after 3 seconds
-    setTimeout(() => setSaveSuccess(false), 3000);
+    setIsProcessingImages(true); // Re-use this state for saving too
+    try {
+      const newProperty: Property = {
+        id: editingPropertyId || Date.now().toString(),
+        title: formData.title,
+        subtitle: formData.subtitle,
+        location: `${formData.location.split(',')[0]}, Chile`,
+        price: parseFloat(formData.price) || 0,
+        currency: formData.currency,
+        imageUrl: formData.imageUrl || 'https://picsum.photos/seed/new/1200/1500',
+        categoryImages: formData.categoryImages,
+        bedrooms: parseInt(formData.bedrooms) || 0,
+        bathrooms: parseInt(formData.bathrooms) || 0,
+        area: parseInt(formData.area) || 0,
+        landArea: parseInt(formData.landArea) || 0,
+        parking: parseInt(formData.parking) || 0,
+        type: formData.type,
+        listingType: formData.listingType,
+        description: formData.description,
+        amenities: formData.amenities.split(',').map(a => a.trim()).filter(a => a !== ''),
+        isPremium: formData.isPremium
+      };
+      
+      await onAddProperty(newProperty);
+      
+      // Reset form, clear draft and go back to list
+      localStorage.removeItem('leroy_property_draft');
+      setFormData(initialFormState);
+      setEditingPropertyId(null);
+      setSaveSuccess(true);
+      setActiveTab('list');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error in handleSubmit:', error);
+      // Error is handled in App.tsx with alert
+    } finally {
+      setIsProcessingImages(false);
+    }
   };
 
   const handleEdit = (p: Property) => {
     setEditingPropertyId(p.id);
     setFormData({
       title: p.title,
+      subtitle: p.subtitle,
+      location: p.location.split(',')[0],
+      price: p.price.toString(),
+      currency: p.currency,
+      imageUrl: p.imageUrl,
+      categoryImages: p.categoryImages || [],
+      bedrooms: p.bedrooms.toString(),
+      bathrooms: p.bathrooms.toString(),
+      area: p.area.toString(),
+      landArea: (p.landArea || 0).toString(),
+      parking: (p.parking || 0).toString(),
+      type: p.type,
+      listingType: p.listingType,
+      description: p.description,
+      amenities: p.amenities.join(', '),
+      isPremium: p.isPremium
+    });
+    setActiveTab('add');
+  };
+
+  const handleDuplicate = (p: Property) => {
+    setEditingPropertyId(null); // Es una nueva propiedad
+    setFormData({
+      title: `${p.title} (Copia)`,
       subtitle: p.subtitle,
       location: p.location.split(',')[0],
       price: p.price.toString(),
@@ -214,11 +262,41 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
   return (
     <div className="pt-24 pb-12 px-8 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-5xl font-serif">Panel de Gestión</h1>
-        <button onClick={onCancel} className="text-gray-400 hover:text-black">
-          <X size={24} />
-        </button>
+      <div className="flex justify-between items-start mb-8">
+        <div>
+          <h1 className="text-5xl font-serif">Panel de Gestión</h1>
+          <div className="flex flex-col gap-1 mt-2">
+            {currentUser && (
+              <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-leroy-orange">
+                <User size={12} />
+                <span>Sesión: {currentUser.email}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest">
+              <div className={`w-2 h-2 rounded-full ${isCloudConnected === true ? 'bg-green-500' : isCloudConnected === false ? 'bg-red-500' : 'bg-gray-300 animate-pulse'}`} />
+              <span className={isCloudConnected === false ? 'text-red-500' : 'text-gray-400'}>
+                {isCloudConnected === true ? 'Conectado a la Nube (Firebase)' : isCloudConnected === false ? 'Error de Conexión Cloud' : 'Verificando Conexión...'}
+              </span>
+              <button 
+                onClick={checkCloudConnection}
+                disabled={isTestingConnection}
+                className="ml-2 text-leroy-orange hover:underline disabled:opacity-50"
+              >
+                {isTestingConnection ? 'Probando...' : 'Reintentar'}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-4">
+          <button 
+            onClick={onCancel} 
+            className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-[9px] font-bold uppercase tracking-widest text-gray-400 hover:text-red-500 transition-colors rounded-full"
+            title="Cerrar Sesión"
+          >
+            <LogOut size={16} />
+            <span>Salir</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-8 border-b border-gray-100 mb-8">
@@ -288,6 +366,13 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                   <p className="text-[10px] font-bold text-leroy-orange mt-1">{p.currency} {p.price.toLocaleString()}</p>
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleDuplicate(p)}
+                    className="p-3 bg-gray-50 text-gray-400 hover:bg-leroy-orange hover:text-white transition-all rounded-full"
+                    title="Duplicar / Copiar"
+                  >
+                    <Copy size={16} />
+                  </button>
                   <button 
                     onClick={() => handleEdit(p)}
                     className="p-3 bg-gray-50 text-gray-400 hover:bg-black hover:text-white transition-all rounded-full"

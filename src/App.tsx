@@ -10,8 +10,9 @@ import PropertyDetailView from './components/PropertyDetailView';
 import { Property, HeroSearchState, ListingType, PropertyType } from './types';
 import { MOCK_PROPERTIES, COMMUNES } from './constants';
 import { interpretSearchQuery } from './services/geminiService';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { db, handleFirestoreError, OperationType, auth, logout } from './firebase';
 import { collection, onSnapshot, query, orderBy, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'home' | 'real_estate' | 'admin' | 'detail'>('home');
@@ -24,6 +25,22 @@ const App: React.FC = () => {
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  // --- ESCUCHA DE AUTENTICACIÓN ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+      if (currentUser && currentUser.email === 'janiceleroy@gmail.com') {
+        setIsAdminAuthenticated(true);
+      } else {
+        setIsAdminAuthenticated(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // --- CORRECCIÓN EN LA CARGA DE DATOS ---
   useEffect(() => {
@@ -38,29 +55,41 @@ const App: React.FC = () => {
         props.push(doc.data() as Property);
       });
 
-      // Si hay datos en Firebase, los usamos exclusivamente
+      console.log(`Firestore snapshot received: ${props.length} properties. Source: ${snapshot.metadata.fromCache ? 'Cache' : 'Server'}`);
+
+      // Si el snapshot está vacío, pero la carga inicial ya se hizo,
+      // significa que el usuario borró todo o la base de datos está vacía.
       if (props.length > 0) {
         setProperties(props);
-      } else {
-        // Solo si Firebase está REALMENTE vacío, intentamos cargar locales o mocks
+        setLoadError(null);
+      } else if (!isInitialLoadDone) {
+        // Primera carga y está vacío: intentamos local o mocks
+        console.log('Firestore is empty on initial load. Checking local storage...');
         const savedLocal = localStorage.getItem('leroy_properties_v1');
         if (savedLocal) {
           try {
             const parsed = JSON.parse(savedLocal);
+            console.log(`Loaded ${parsed.length} properties from local storage.`);
             setProperties(parsed.length > 0 ? parsed : MOCK_PROPERTIES);
           } catch (e) {
+            console.error('Error parsing local storage:', e);
             setProperties(MOCK_PROPERTIES);
           }
         } else {
+          console.log('No local storage found. Loading mock properties.');
           setProperties(MOCK_PROPERTIES);
         }
+      } else {
+        // Ya se había cargado algo antes y ahora está vacío (borrado intencional)
+        console.log('Firestore became empty after initial load.');
+        setProperties([]);
       }
       
       setIsLoading(false);
       setIsInitialLoadDone(true);
     }, (error) => {
-      console.error('Firestore error:', error);
-      setLoadError('Error de conexión. Usando respaldo local.');
+      console.error('Firestore onSnapshot error:', error);
+      setLoadError('Error de conexión con la base de datos. Usando respaldo local.');
       
       const savedLocal = localStorage.getItem('leroy_properties_v1');
       if (savedLocal) {
@@ -176,18 +205,41 @@ const App: React.FC = () => {
 
   // --- CORRECCIÓN EN EL GUARDADO ---
   const handleAddProperty = async (newProp: Property) => {
+    console.log('Attempting to save property to Firestore:', newProp.id);
     try {
+      // Validar tamaño aproximado (Firestore límite 1MB)
+      const size = new Blob([JSON.stringify(newProp)]).size;
+      if (size > 1000000) { // 1MB aprox (límite real 1,048,576 bytes)
+        throw new Error('La propiedad es demasiado grande (posiblemente por las imágenes). Intenta con imágenes más pequeñas.');
+      }
+
+      if (!auth.currentUser) {
+        throw new Error('No hay una sesión activa. Por favor, inicia sesión con Google.');
+      }
+
       await setDoc(doc(db, 'properties', newProp.id), newProp);
+      console.log('Property successfully saved to Firestore');
       
-      // Limpiamos filtros para que aparezca en la lista si el usuario navega manualmente
       setListingCategory('all');
       setSelectedCommunes([]);
       setSelectedType(null);
-      // NO cambiamos la vista (setView), para que el usuario permanezca en el panel de administración
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving to Firestore:', error);
-      handleFirestoreError(error, OperationType.WRITE, `properties/${newProp.id}`);
-      alert('Error al guardar la propiedad. Revisa tu conexión.');
+      let message = 'Error al guardar en Firebase. Verifica tu conexión y permisos.';
+      
+      if (error.message.includes('La propiedad es demasiado grande')) {
+        message = error.message;
+      } else if (error.message.includes('No hay una sesión activa')) {
+        message = error.message;
+      } else if (error.code === 'permission-denied') {
+        message = 'Permiso denegado. Asegúrate de haber iniciado sesión con janiceleroy@gmail.com.';
+      }
+
+      alert(message);
+      
+      // We don't call handleFirestoreError here because it throws again, 
+      // and we want to handle the error gracefully in the UI.
+      throw error; 
     }
   };
 
@@ -234,10 +286,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSecureLogout = () => {
-    setIsAdminAuthenticated(false);
-    setIsConfirmingLogout(false);
-    setView('home');
+  const handleSecureLogout = async () => {
+    try {
+      await logout();
+      setIsAdminAuthenticated(false);
+      setIsConfirmingLogout(false);
+      setView('home');
+    } catch (error) {
+      console.error('Logout error:', error);
+      setIsAdminAuthenticated(false);
+      setIsConfirmingLogout(false);
+      setView('home');
+    }
   };
 
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
