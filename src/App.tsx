@@ -35,9 +35,8 @@ const App: React.FC = () => {
       setIsAuthReady(true);
       if (currentUser && currentUser.email === 'janiceleroy@gmail.com') {
         setIsAdminAuthenticated(true);
-      } else {
-        setIsAdminAuthenticated(false);
       }
+      // No forzamos false aquí para permitir que el login por PIN funcione
     });
     return () => unsubscribe();
   }, []);
