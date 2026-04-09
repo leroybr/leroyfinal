@@ -1,12 +1,11 @@
 {
-<<<<<<< HEAD
   "name": "leroy-residence-luxury-real-estate",
-=======
-  "name": "leroy03",
->>>>>>> 40b368e65afa6a37890000c01c850476a2a71b34
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
