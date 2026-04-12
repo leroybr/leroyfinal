@@ -84,7 +84,7 @@ const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCancel, mo
                   <div className="w-full border-t border-gray-100"></div>
                 </div>
                 <div className="relative flex justify-center text-[8px] uppercase tracking-widest">
-                  <span className="bg-white px-4 text-gray-300">O sincronizar con la nube</span>
+                  <span className="bg-white px-4 text-leroy-orange font-bold">Recomendado para Sincronización Cloud</span>
                 </div>
               </div>
 
@@ -92,7 +92,7 @@ const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCancel, mo
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-4 bg-white border border-gray-200 py-3 px-6 hover:bg-gray-50 transition-all group shadow-sm"
+                className="w-full flex items-center justify-center gap-4 bg-leroy-black text-white py-4 px-6 hover:bg-leroy-orange transition-all group shadow-lg"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

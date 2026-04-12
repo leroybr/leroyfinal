@@ -46,8 +46,9 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
   const checkCloudConnection = async () => {
     setIsTestingConnection(true);
     try {
-      // Intentamos leer un documento de prueba del servidor
-      await getDocFromServer(doc(db, 'test', 'connection'));
+      // Intentamos leer un documento de la colección 'properties' que es pública
+      // No importa si el documento existe o no, lo que importa es si la petición llega al servidor
+      await getDocFromServer(doc(db, 'properties', 'connection-test'));
       setIsCloudConnected(true);
     } catch (error) {
       console.error('Cloud connection test failed:', error);
@@ -285,6 +286,12 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 {isTestingConnection ? 'Probando...' : 'Reintentar'}
               </button>
             </div>
+            {!currentUser && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded text-[9px] font-bold text-red-600 uppercase tracking-widest flex items-center gap-2">
+                <X size={12} />
+                <span>Modo Local: Inicia sesión con Google para guardar en la nube</span>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex gap-4">

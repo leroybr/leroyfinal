@@ -56,32 +56,31 @@ const App: React.FC = () => {
 
       console.log(`Firestore snapshot received: ${props.length} properties. Source: ${snapshot.metadata.fromCache ? 'Cache' : 'Server'}`);
 
-      // Si el snapshot está vacío, pero la carga inicial ya se hizo,
-      // significa que el usuario borró todo o la base de datos está vacía.
       if (props.length > 0) {
         setProperties(props);
         setLoadError(null);
       } else if (!isInitialLoadDone) {
-        // Primera carga y está vacío: intentamos local o mocks
+        // Solo cargamos mocks/local si es la PRIMERA carga y Firestore está vacío
         console.log('Firestore is empty on initial load. Checking local storage...');
         const savedLocal = localStorage.getItem('leroy_properties_v1');
         if (savedLocal) {
           try {
             const parsed = JSON.parse(savedLocal);
-            console.log(`Loaded ${parsed.length} properties from local storage.`);
             setProperties(parsed.length > 0 ? parsed : MOCK_PROPERTIES);
           } catch (e) {
-            console.error('Error parsing local storage:', e);
             setProperties(MOCK_PROPERTIES);
           }
         } else {
-          console.log('No local storage found. Loading mock properties.');
           setProperties(MOCK_PROPERTIES);
         }
       } else {
-        // Ya se había cargado algo antes y ahora está vacío (borrado intencional)
-        console.log('Firestore became empty after initial load.');
-        setProperties([]);
+        // Si ya se había cargado algo y ahora viene vacío de Firestore, 
+        // solo actualizamos si el snapshot NO es de caché y el usuario está logueado con Google
+        // (esto evita que el estado vacío de la nube borre el trabajo local de alguien usando PIN)
+        if (!snapshot.metadata.fromCache && auth.currentUser) {
+          console.log('Firestore confirmed empty from server.');
+          setProperties([]);
+        }
       }
       
       setIsLoading(false);
@@ -204,16 +203,30 @@ const App: React.FC = () => {
 
   // --- CORRECCIÓN EN EL GUARDADO ---
   const handleAddProperty = async (newProp: Property) => {
-    console.log('Attempting to save property to Firestore:', newProp.id);
+    console.log('Attempting to save property:', newProp.id);
+    
+    // Actualización optimista en el estado local para que el usuario vea el cambio de inmediato
+    setProperties(prev => {
+      const exists = prev.find(p => p.id === newProp.id);
+      if (exists) {
+        return prev.map(p => p.id === newProp.id ? newProp : p);
+      }
+      return [newProp, ...prev];
+    });
+
     try {
       // Validar tamaño aproximado (Firestore límite 1MB)
       const size = new Blob([JSON.stringify(newProp)]).size;
-      if (size > 1000000) { // 1MB aprox (límite real 1,048,576 bytes)
-        throw new Error('La propiedad es demasiado grande (posiblemente por las imágenes). Intenta con imágenes más pequeñas.');
+      if (size > 1000000) {
+        throw new Error('La propiedad es demasiado grande. Las imágenes son muy pesadas.');
       }
 
+      // Si no hay sesión de Google, guardamos solo localmente y avisamos
       if (!auth.currentUser) {
-        throw new Error('No hay una sesión activa. Por favor, inicia sesión con Google.');
+        console.warn('No Google session. Saving only to local storage.');
+        // Ya se actualizó el estado local arriba, y el useEffect de persistencia lo guardará en localStorage
+        alert('Nota: No has iniciado sesión con Google. La propiedad se guardó solo en este dispositivo. Para sincronizar con la nube, inicia sesión con Google.');
+        return;
       }
 
       await setDoc(doc(db, 'properties', newProp.id), newProp);
@@ -223,21 +236,16 @@ const App: React.FC = () => {
       setSelectedCommunes([]);
       setSelectedType(null);
     } catch (error: any) {
-      console.error('Error saving to Firestore:', error);
-      let message = 'Error al guardar en Firebase. Verifica tu conexión y permisos.';
+      console.error('Error saving property:', error);
+      let message = 'Error al sincronizar con la nube.';
       
-      if (error.message.includes('La propiedad es demasiado grande')) {
-        message = error.message;
-      } else if (error.message.includes('No hay una sesión activa')) {
+      if (error.message.includes('demasiado grande')) {
         message = error.message;
       } else if (error.code === 'permission-denied') {
-        message = 'Permiso denegado. Asegúrate de haber iniciado sesión con janiceleroy@gmail.com.';
+        message = 'Permiso denegado en la nube. Asegúrate de usar la cuenta janiceleroy@gmail.com.';
       }
 
-      alert(message);
-      
-      // We don't call handleFirestoreError here because it throws again, 
-      // and we want to handle the error gracefully in the UI.
+      alert(message + ' Tu cambio se mantiene localmente en este navegador.');
       throw error; 
     }
   };
