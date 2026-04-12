@@ -29,14 +29,22 @@ const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCancel, mo
     try {
       const result = await loginWithGoogle();
       if (result.user.email !== 'janiceleroy@gmail.com') {
-        setError('Acceso denegado: Solo la cuenta janiceleroy@gmail.com está autorizada.');
+        setError(`Acceso denegado: La cuenta ${result.user.email} no está autorizada. Usa janiceleroy@gmail.com.`);
         await auth.signOut();
       } else {
         onSuccess();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setError('Error al iniciar sesión con Google.');
+      if (err.code === 'auth/popup-blocked') {
+        setError('El navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError('Se cerró la ventana de inicio de sesión antes de completar.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Este dominio no está autorizado en Firebase. Por favor, contacta a soporte.');
+      } else {
+        setError(`Error al iniciar sesión: ${err.message || 'Error desconocido'}`);
+      }
     } finally {
       setIsLoading(false);
     }
