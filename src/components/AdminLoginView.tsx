@@ -41,7 +41,7 @@ const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onSuccess, onCancel, mo
       } else if (err.code === 'auth/cancelled-popup-request') {
         setError('Se cerró la ventana de inicio de sesión antes de completar.');
       } else if (err.code === 'auth/unauthorized-domain') {
-        setError('Este dominio no está autorizado en Firebase. Por favor, contacta a soporte.');
+        setError(`Este dominio (${window.location.hostname}) no está autorizado en Firebase. Por favor, agrégalo en la consola.`);
       } else {
         setError(`Error al iniciar sesión: ${err.message || 'Error desconocido'}`);
       }

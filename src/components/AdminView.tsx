@@ -261,6 +261,16 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     p.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleForceUpdate = () => {
+    if (confirm('¿Deseas forzar una actualización del sistema? Esto limpiará la memoria temporal y recargará todos los datos de la nube.')) {
+      // Limpiar backups locales
+      localStorage.removeItem('leroy_properties_v1');
+      localStorage.removeItem('leroy_property_draft');
+      // Recargar la página ignorando el caché
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="pt-24 pb-12 px-8 max-w-4xl mx-auto">
       <div className="flex justify-between items-start mb-8">
@@ -295,6 +305,14 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
           </div>
         </div>
         <div className="flex gap-4">
+          <button 
+            onClick={handleForceUpdate}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-[9px] font-bold uppercase tracking-widest text-leroy-orange hover:bg-leroy-orange hover:text-white transition-all rounded-full border border-leroy-orange/20"
+            title="Forzar Sincronización y Limpiar Caché"
+          >
+            <Globe size={14} className="animate-spin-slow" />
+            <span>Actualización Forzada</span>
+          </button>
           <button 
             onClick={onCancel} 
             className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-[9px] font-bold uppercase tracking-widest text-gray-400 hover:text-red-500 transition-colors rounded-full"
