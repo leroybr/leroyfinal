@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Pillar 0: Default Deny Catch-All (Mandated at the beginning)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Global Helper Functions (Pillar 3 & 4)
+    // ===============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Admin check: Only trusted emails or manual UID
+    function isAdmin() {
+      return isSignedIn() && isEmailVerified() && 
+             (request.auth.token.email == "janiceleroy@gmail.com" || 
+              request.auth.uid == "zVnYHORDdQTfJRWzeiAMKVsgoVz2");
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ===============================================================
+    // Entity Validators (Pillar 2 & 5)
+    // ===============================================================
+
+    function isValidValuation(data) {
+      return data.keys().hasAll(['userId', 'commune', 'estimated_price_uf', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.commune is string && data.commune.size() < 100 &&
+             data.estimated_price_uf is number &&
+             data.createdAt == request.time;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() < 255 &&
+             data.createdAt == request.time;
+    }
+
+    // ===============================================================
+    // Collection Matches
+    // ===============================================================
+
+    // Public Knowledge Base (Pillar 8: Secure List Queries)
+    match /projects/{projectId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(projectId);
+    }
+
+    match /normativa_comunal/{normId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(normId);
+    }
+
+    match /mercado_historico/{marketId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(marketId);
+    }
+
+    // User Private Profiles (Pillar 6: PII Isolation)
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUserProfile(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']);
+      allow delete: if isAdmin();
+    }
+
+    // Valuations (Pillar 1 & 8)
+    match /valuations/{valuationId} {
+      // Secure list query enabled via resource.data.userId check
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Permitir creación si está logueado, verificado y es el dueño
+      allow create: if isEmailVerified() && isValidValuation(incoming()) && isValidId(valuationId);
+      
+      // Solo administradores pueden actualizar o borrar tasaciones registradas
+      allow update, delete: if isAdmin();
+    }
+  }
+}

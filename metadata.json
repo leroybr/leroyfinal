@@ -1,0 +1,8 @@
+{
+  "name": "Prop Value 1",
+  "description": "Expert Real Estate Valuation System (AVM) for the Biobío region. Analyzes Legal (ROL), Normative (PRC), Qualitative, and Market (ACM) dimensions.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
