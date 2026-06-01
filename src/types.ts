@@ -216,6 +216,7 @@ export interface PropertyData {
   comparable_4_clp?: number;
   comparable_4_uf?: number;
   comparable_4_link?: string;
+  expert_analysis?: any;
 }
 
 export interface ValuationResult {
@@ -226,6 +227,9 @@ export interface ValuationResult {
   safety_factor?: string;
   comparables: ComparableProperty[];
   market_context: string;
+  base_physical_price_uf?: number;
+  normative_optimized_price_uf?: number;
+  market_crossed_price_uf?: number;
   regulatory_analysis?: {
     compliance_score: number;
     observations: string;
@@ -364,6 +368,39 @@ export interface ValuationResult {
     urbanization_observations: string;
   };
   property_data: PropertyData;
+  expert_analysis?: {
+    analisisNormativo?: {
+      zonificacionPrc?: string;
+      coefSuelo?: number;
+      constructibilidad?: number;
+      alturaMaxima?: number;
+      densidadMaxima?: number;
+      sistemaAgrupamiento?: string;
+    };
+    valoresAjustados?: {
+      valorBaseUF?: number;
+      premioNormativoUF?: number;
+      ajusteMercadoUF?: number;
+      valorFinalUF?: number;
+    };
+    ponderadoresTabla?: Array<{
+      factor: string;
+      variable: string;
+      impacto: string;
+      justificacion: string;
+    }>;
+    narrativaAmigable?: {
+      titulo?: string;
+      parrafoIntroduccion?: string;
+      parrafoNormativa?: string;
+      parrafoMercado?: string;
+    };
+    fichaTecnica?: {
+      estructuraSoportante?: string;
+      calidadTerminaciones?: string;
+      obsolescenciaFuncional?: string;
+    };
+  };
 }
 
 export interface ComparableProperty {

@@ -9,43 +9,62 @@ export interface RolDescompuesto {
   valido: boolean;
 }
 
-// 🗺️ Diccionario Unificado usando estrictamente la codificación de Comunas del SII (Requerido por MINVU GIS)
+// 🗺️ Diccionario Oficial Unificado según la codificación de Impuestos Internos (SII)
+// Corregido milimétricamente para evitar solapamientos en el Gran Biobío y Santiago
 export const COMUNA_CODES_VALUATION: Record<string, string> = {
+  // 📍 Circuito Prioritario Gran Biobío
   "Concepción": "08101",
-  "San Pedro de la Paz": "08110", // Corregido a Código SII (Antes mapeaba SUBDERE 14202)
-  "Talcahuano": "08109",          // Corregido a Código SII
+  "Coronel": "08102",
   "Chiguayante": "08103",
-  "Hualpén": "08112",
-  "Coronel": "08105",
-  "Santiago": "01101",            // Código SII oficial
-  "Providencia": "01112",          // Código SII oficial
-  "Las Condes": "01108",           // Código SII oficial
-  "Vitacura": "01116",            // Código SII oficial
-  "Ñuñoa": "01113",               // Código SII oficial
-  "Lo Barnechea": "01109"          // Código SII oficial
+  "Penco": "08105",
+  "Talcahuano": "08108",
+  "Hualpén": "08110",
+  "San Pedro de la Paz": "08112",
+
+  // 📍 Región Metropolitana (Prefijo 13 de SUBDERE/SII para regularización)
+  "Santiago": "13101",
+  "Lo Barnechea": "13115",
+  "Las Condes": "13114",
+  "Ñuñoa": "13120",
+  "Providencia": "13123",
+  "Vitacura": "13132"
+};
+
+/**
+ * Normaliza textos complejos eliminando diacríticos, acentos y espacios huérfanos.
+ * Pensado para que la IA y las entradas de usuario no fallen por un tilde (ej: "Concepción" o "Hualpén")
+ */
+const normalizarTexto = (texto: string): string => {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remueve acentos de forma nativa
+    .trim();
 };
 
 export const getComunaCodeForRol = (communeName: string): string => {
   if (!communeName) return "08101"; // Fallback predeterminado a Concepción Centro
-  const matched = Object.keys(COMUNA_CODES_VALUATION).find(k => 
-    k.toLowerCase() === communeName.toLowerCase() || 
-    communeName.toLowerCase().includes(k.toLowerCase())
-  );
+  
+  const nombreBuscado = normalizarTexto(communeName);
+  
+  const matched = Object.keys(COMUNA_CODES_VALUATION).find(k => {
+    const llaveNormalizada = normalizarTexto(k);
+    return llaveNormalizada === nombreBuscado || nombreBuscado.includes(llaveNormalizada);
+  });
+  
   return matched ? COMUNA_CODES_VALUATION[matched] : "08101"; 
 };
 
 /**
- * Sanitiza y descompone un string de Rol chileno.
- * Fuerza el rellenado con ceros a la izquierda para calzar con la cartografía oficial del MINVU.
+ * 📐 Sanitiza y descompone un string de Rol chileno.
+ * Garantiza de forma estricta que Manzana y Predio tengan 5 dígitos rellenados con ceros a la izquierda,
+ * independientemente de cómo lo ingrese el usuario para calzar con las capas del SII.
  */
 export const sanitizarYDescomponerRol = (
   rolRaw: string,
   codigoComunaPredeterminado: string = "08101"
 ): RolDescompuesto => {
-  // 1. Limpiar caracteres extraños, dejar solo números y guiones
   const limpio = rolRaw.replace(/[^0-9-]/g, "");
-
-  // 2. Dividir por el guion
   const partes = limpio.split("-").filter(part => part.length > 0);
 
   const resultadoInvalido: RolDescompuesto = {
@@ -57,24 +76,28 @@ export const sanitizarYDescomponerRol = (
   };
 
   if (partes.length === 2) {
-    // Caso: El usuario ingresó "Manzana-Predio" (ej: "1172-4")
-    const mzn = partes[0].trim();
-    const prd = partes[1].trim();
+    // Caso: "Manzana-Predio" (ej: "1172-4") -> Forzamos estandarización estructural
+    const mzn = partes[0].trim().padStart(5, '0');
+    const prd = partes[1].trim().padStart(5, '0');
     
     return {
       comunaCode: codigoComunaPredeterminado,
       manzana: mzn,
       predio: prd,
-      formatoSii: `${codigoComunaPredeterminado}-${mzn.padStart(5, '0')}-${prd.padStart(5, '0')}`,
+      formatoSii: `${codigoComunaPredeterminado}-${mzn}-${prd}`,
       valido: true
     };
   } else if (partes.length === 3) {
-    // Caso: El usuario ingresó "Comuna-Manzana-Predio" (ej: "08101-1172-4")
+    // Caso: "Comuna-Manzana-Predio" (ej: "08101-1172-4") -> Aquí también se obliga el padStart
+    const com = partes[0].trim().padStart(5, '0');
+    const mzn = partes[1].trim().padStart(5, '0');
+    const prd = partes[2].trim().padStart(5, '0');
+
     return {
-      comunaCode: partes[0],
-      manzana: partes[1],
-      predio: partes[2],
-      formatoSii: `${partes[0]}-${partes[1].padStart(5, '0')}-${partes[2].padStart(5, '0')}`,
+      comunaCode: com,
+      manzana: mzn,
+      predio: prd,
+      formatoSii: `${com}-${mzn}-${prd}`,
       valido: true
     };
   }
@@ -83,8 +106,8 @@ export const sanitizarYDescomponerRol = (
 };
 
 /**
- * 📐 Calcula el centroide geográfico de un conjunto de polígonos devueltos por el WFS
- * para mover la cámara directamente al lote real.
+ * 📐 Calcula el centroide geográfico de un conjunto de polígonos devueltos por el WFS.
+ * Integra validaciones geométricas avanzadas para soportar polígonos simples y complejos (MultiPolygon).
  */
 export const extraerCentroideDeFeatures = (features: any[]): [number, number] | null => {
   try {
@@ -94,15 +117,22 @@ export const extraerCentroideDeFeatures = (features: any[]): [number, number] | 
     let lngSum = 0;
     let totalPuntos = 0;
 
-    // Buscamos coordenadas en la primera feature disponible
     const geom = features[0].geometry;
     if (!geom) return null;
 
-    const poligonos = geom.type === "MultiPolygon" ? geom.coordinates[0][0] : geom.coordinates[0];
+    // Manejo inteligente de la profundidad de matrices según el estándar de geometría OGC
+    let poligonos = [];
+    if (geom.type === "MultiPolygon") {
+      poligonos = geom.coordinates[0][0]; 
+    } else if (geom.type === "Polygon") {
+      poligonos = geom.coordinates[0];
+    } else {
+      return null;
+    }
 
     poligonos.forEach((coord: number[]) => {
       if (coord && coord.length >= 2) {
-        lngSum += coord[0]; // El estándar WFS entrega [Longitud, Latitud]
+        lngSum += coord[0]; // Estándar WFS GeoJSON: [Longitud, Latitud]
         latSum += coord[1];
         totalPuntos++;
       }
@@ -111,12 +141,12 @@ export const extraerCentroideDeFeatures = (features: any[]): [number, number] | 
     if (totalPuntos === 0) return null;
     return [latSum / totalPuntos, lngSum / totalPuntos];
   } catch (err) {
-    console.error("Error al calcular coordenadas de encuadre:", err);
+    console.error("Error crítico al calcular coordenadas de encuadre en el plano:", err);
     return null;
   }
 };
 
-// Componente interno para controlar transiciones fluidas de cámara en Leaflet
+// Componente para la transición fluida de la cámara
 export const ChangeView: React.FC<{ center: [number, number], zoom: number }> = ({ center, zoom }) => {
   const map = useMap();
   const [lat, lng] = center;
@@ -124,7 +154,6 @@ export const ChangeView: React.FC<{ center: [number, number], zoom: number }> = 
   React.useEffect(() => {
     if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
       map.setView([lat, lng], zoom);
-      // Evita problemas de renderizado parcial de mosaicos grises en el contenedor
       setTimeout(() => {
         map.invalidateSize();
       }, 150);
@@ -135,26 +164,28 @@ export const ChangeView: React.FC<{ center: [number, number], zoom: number }> = 
 };
 
 /**
- * Consulta la API cartográfica para obtener todos los predios de la misma manzana.
+ * Consulta la API cartográfica interna conectada a la capa base de catastro predial chileno.
  */
 export const obtenerCartografiaManzana = async (comunaCode: string, manzana: string): Promise<any> => {
   try {
-    // Forzamos que el parámetro manzana enviado al backend tenga los 5 dígitos que exige el MINVU
+    // Robustez absoluta: Aseguramos limpieza y formato de 5 caracteres antes de subir el request a la API
+    const comFormateada = String(comunaCode || "").trim().padStart(5, '0');
     const mznFormateada = String(manzana || "").trim().padStart(5, '0');
-    const url = `/api/cartografia-manzana?comunaCode=${encodeURIComponent(comunaCode)}&manzana=${encodeURIComponent(mznFormateada)}`;
+    
+    const url = `/api/cartografia-manzana?comunaCode=${encodeURIComponent(comFormateada)}&manzana=${encodeURIComponent(mznFormateada)}`;
     
     const respuesta = await fetch(url);
     if (!respuesta.ok) throw new Error(`HTTP Error: ${respuesta.status}`);
     
     const rawText = await respuesta.text();
     if (!rawText || !rawText.trim().startsWith("{")) {
-       throw new Error("El servidor cartográfico retornó una página de error o HTML en vez de GeoJSON.");
+       throw new Error("El endpoint no retornó un GeoJSON estructurado.");
     }
     
     const data = JSON.parse(rawText);
     return data.features && data.features.length > 0 ? data.features : null;
   } catch (error: any) {
-    console.warn("Info: El mapa de predios no se pudo cargar desde IDE Chile (usando fallback local integrado):", error.message || error);
+    console.warn("Info: Error en pasarela IDE/SII (conmutando a flujos locales de contingencia):", error.message || error);
     return null;
   }
 };

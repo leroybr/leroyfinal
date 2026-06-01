@@ -6,7 +6,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { getRegulatoryData, estimatePropertyValue } from "./src/services/geminiService";
+import { getRegulatoryData, estimatePropertyValue, runMarketAnalysis } from "./src/services/geminiService";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -126,6 +126,23 @@ app.post("/api/estimate-property-value", async (req, res) => {
   } catch (error: any) {
     console.error("Error in /api/estimate-property-value:", error);
     res.status(500).json({ error: "Error al realizar la tasación con IA", message: error.message });
+  }
+});
+
+app.post("/api/analisis-mercado", async (req, res) => {
+  try {
+    const payload = req.body;
+    console.log("[Backend] Recibido para análisis en cascada:", payload);
+
+    if (!payload.comuna) {
+      return res.status(400).json({ error: "Falta la comuna requerida." });
+    }
+
+    const data = await runMarketAnalysis(payload);
+    res.json(data);
+  } catch (error: any) {
+    console.error("Error in /api/analisis-mercado:", error);
+    res.status(500).json({ error: "Error al realizar el análisis experto con IA", message: error.message });
   }
 });
 

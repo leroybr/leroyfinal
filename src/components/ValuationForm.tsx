@@ -8,6 +8,7 @@ import { Info, Sparkles, Loader2, X, Calculator, MapPin, ExternalLink, FileText,
 import { PRCViewerModal } from './PRCViewerModal';
 import { MapContainer, TileLayer, Marker, ZoomControl } from 'react-leaflet';
 import { ChangeView, sanitizarYDescomponerRol } from './MapUtils';
+import { PRCLayersControl } from './PRCLayersControl';
 import ErrorBoundary from './ErrorBoundary';
 import L from 'leaflet';
 
@@ -702,6 +703,64 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
     return () => clearTimeout(timer);
   }, []);
 
+  // 💾 ESTADOS DE PERSISTENCIA PARA FLUJO IA Y TASACIÓN DINÁMICA
+  const [resultadoAnalisis, setResultadoAnalisis] = useState<any | null>(null);
+  const [ejecutandoAnalisis, setEjecutandoAnalisis] = useState(false);
+
+  // 🚀 LÓGICA DE PROCESAMIENTO POR ETAPAS EN CASCADA (MERCADO + ROSS-HEIDECKE)
+  const handleEjecutarAnalisisInmobiliario = async () => {
+    if (!commune) {
+      setAppError("Por favor, selecciona una comuna antes de ejecutar el estudio.");
+      return;
+    }
+    try {
+      setEjecutandoAnalisis(true);
+      setAppError(null);
+      
+      const payloadTasacion = {
+        comuna: commune,
+        rol_manzana: rolManzana,
+        rol_predio: rolPredio,
+        direccion: `${street || ""} ${number || ""}`.trim(),
+        m2_total: watch("m2_total"),
+        materialidad: watch("materiality_walls") || "No especificada",
+        conservacion: watch("conservation_state") || "Bueno",
+        calidad: watch("construction_quality") || "Media",
+        market_comparables: watch("market_comparables") || ""
+      };
+
+      const response = await fetch('/api/analisis-mercado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadTasacion),
+      });
+
+      if (!response.ok) throw new Error("Error en la pasarela de análisis analítico.");
+
+      const data = await response.json();
+      setResultadoAnalisis(data);
+
+      if (data.analisisNormativo) {
+        setValue("zoning_code", data.analisisNormativo.zonificacionPrc);
+        setValue("zoning_code_prc", data.analisisNormativo.zonificacionPrc);
+        setValue("land_use_coefficient", data.analisisNormativo.coefSuelo);
+        setValue("constructability_index", data.analisisNormativo.constructibilidad || data.analisisNormativo.constructibility);
+        setValue("max_height", data.analisisNormativo.alturaMaxima);
+        if (data.analisisNormativo.densidadMaxima) {
+          setValue("density", String(data.analisisNormativo.densidadMaxima));
+        }
+        if (data.analisisNormativo.sistemaAgrupamiento) {
+          setValue("grouping", data.analisisNormativo.sistemaAgrupamiento as any);
+        }
+      }
+    } catch (error: any) {
+      console.error(error);
+      setAppError(error.message || "Error al procesar las ponderaciones del mercado.");
+    } finally {
+      setEjecutandoAnalisis(false);
+    }
+  };
+
   const handleFetchNorms = async () => {
     if (!commune) {
       setAppError("Por favor, selecciona una comuna primero.");
@@ -867,7 +926,11 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
       <form 
         onSubmit={handleSubmit(async (data: PropertyData) => {
           const hasTransport = data.proximity_to_services?.some((s: string) => s === "Metro" || s === "Transporte Público");
-          const updatedData = { ...data, proximity_to_metro: !!hasTransport } as PropertyData;
+          const updatedData = { 
+            ...data, 
+            proximity_to_metro: !!hasTransport,
+            expert_analysis: resultadoAnalisis || data.expert_analysis
+          } as PropertyData;
           console.log("Form data validated and submitting:", updatedData);
           try {
             await onSubmit(updatedData);
@@ -1262,7 +1325,12 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
                     type="button"
                     onClick={() => {
                       if (tipoInforme === 'simple') {
-                        handleUnlockPremium();
+                        if (setTipoInforme) {
+                          setTipoInforme('completo');
+                          setTimeout(() => {
+                            handleFetchNorms();
+                          }, 500);
+                        }
                       } else if (setTipoInforme) {
                         setTipoInforme('simple');
                       }
@@ -1287,30 +1355,6 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
                 >
                   <MapPin size={14} /> LOCALIZAR PROPIEDAD
                 </button>
-
-                {watch("zoning_code") && tipoInforme === 'simple' ? (
-                  <button 
-                    type="button"
-                    onClick={handleUnlockPremium}
-                    className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95 animate-pulse border border-amber-600 whitespace-nowrap"
-                  >
-                    <Lock size={13} /> DESBLOQUEAR INFORME IA
-                  </button>
-                ) : (
-                  <button 
-                    type="button"
-                    onClick={handleFetchNorms}
-                    disabled={isFetchingNorms || !commune}
-                    className="bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-black flex items-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group border border-slate-700 whitespace-nowrap"
-                  >
-                    {isFetchingNorms ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" size={14} />
-                    )}
-                    {isFetchingNorms ? "ESCANEANDO..." : "ESCANEAR NORMATIVA IA"}
-                  </button>
-                )}
               </div>
 
               {rolManzana && rolPredio && (
@@ -1401,6 +1445,11 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
                     scrollWheelZoom={false}
                   >
                     <ChangeView center={[coordinates.lat, coordinates.lng]} zoom={16} />
+                    <PRCLayersControl 
+                      zoningCode={watch("zoning_code")} 
+                      geometryData={resultadoAnalisis?.geometryGeoJSON} 
+                      propertyCenter={[coordinates.lat, coordinates.lng]}
+                    />
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -1493,11 +1542,18 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
                 </p>
                 <button
                   type="button"
-                  onClick={handleUnlockPremium}
+                  onClick={() => {
+                    if (setTipoInforme) {
+                      setTipoInforme('completo');
+                      setTimeout(() => {
+                        handleFetchNorms();
+                      }, 500);
+                    }
+                  }}
                   className="w-full bg-blue-600 text-white text-xs font-black py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-1.5 shadow-md uppercase tracking-wide active:scale-95"
                 >
                   <Sparkles size={12} />
-                  Desbloquear Coeficientes
+                  Activar Prueba Gratis Premium ⭐
                 </button>
               </div>
             </div>
@@ -1963,15 +2019,24 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
               />
             </div>
             
-            {/* BOTÓN DE ACCIÓN: CONSULTAR ORDENANZA */}
-            <button 
-              type="button" 
-              onClick={handleFetchNorms}
-              disabled={isFetchingNorms || !commune}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:bg-blue-300"
+            {/* BOTÓN INTEGRADOR CON CAMBIO DE ESTADO EN CASCADA */}
+            <button
+              type="button"
+              onClick={handleEjecutarAnalisisInmobiliario}
+              disabled={ejecutandoAnalisis || isFetchingNorms}
+              className="w-full bg-[#044434] hover:bg-[#033326] text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50"
             >
-              {isFetchingNorms ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw size={16} />}
-              EJECUTAR ANÁLISIS NORMATIVO-MERCADO
+              {ejecutandoAnalisis ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Ponderando Factores (Ross-Heidecke)...
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={16} className={isFetchingNorms || ejecutandoAnalisis ? "animate-spin" : ""} />
+                  EJECUTAR ANÁLISIS NORMATIVO-MERCADO
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -2174,13 +2239,34 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={executeSimulatedPayment}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-md mt-2"
-                >
-                  Confirmar Pago - $14.990 CLP
-                </button>
+                <div className="grid grid-cols-1 gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setPaymentStep('processing');
+                      setPaymentStepMessage("Activando Período de Evaluación Premium...");
+                      await new Promise(resolve => setTimeout(resolve, 800));
+                      setPaymentStep('success');
+                      if (setTipoInforme) {
+                        setTipoInforme('completo');
+                        setTimeout(() => {
+                          handleFetchNorms();
+                        }, 500);
+                      }
+                    }}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-md"
+                  >
+                    Probar Gratis (Acceso Directo) ⭐
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={executeSimulatedPayment}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-sm"
+                  >
+                    Confirmar Pago - $14.990 CLP
+                  </button>
+                </div>
               </div>
             )}
 
