@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /*?page=admin
+Allow: /
+
+Sitemap: https://www.leroyresidence.cl/sitemap.xml
