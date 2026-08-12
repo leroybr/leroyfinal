@@ -1,10 +1,5 @@
 {
-  "name": "Prop Value 1",
-  "description": "Expert Real Estate Valuation System (AVM) for the Biobío region. Analyzes Legal (ROL), Normative (PRC), Qualitative, and Market (ACM) dimensions.",
-  "requestFramePermissions": [
-    "geolocation"
-  ],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "name": "LeRoy Residence | Luxury Real Estate",
+  "description": "Una plataforma de bienes raíces de lujo inspirada en JamesEdition, diseñada para la Octava Región de Chile y el mercado internacional de alta gama.",
+  "requestFramePermissions": []
 }

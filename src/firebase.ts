@@ -1,53 +1,26 @@
-import { initializeApp, getApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { initializeFirestore, getFirestore, collection, addDoc, doc, setDoc, getDoc, getDocs, query, where, orderBy, limit, onSnapshot, serverTimestamp, getDocFromServer } from "firebase/firestore";
-import firebaseConfig from '../firebase-applet-config.json';
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDocFromServer } from 'firebase/firestore';
+import firebaseConfig from './firebase-applet-config.json';
 
 // Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app = initializeApp(firebaseConfig);
 
-// Analytics is disabled for now to avoid background errors in sandbox
-export const analytics = null;
+// Initialize Firestore with the specific database ID from config
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-// Auth initialization
+// Initialize Auth
 export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
-// Use local persistence
-if (typeof window !== "undefined") {
-  setPersistence(auth, browserLocalPersistence).catch(err => console.error("[Firebase Auth] Persistence error:", err));
-}
-
-// Firestore initialization with custom settings for sandbox environment
-// Custom settings are critical for running inside an iframe properly
-const dbSettings = {
-  experimentalForceLongPolling: true,
-  useFetchStreams: false,
-};
-
-// Use the database ID from config or default
-const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
-
-export const db = initializeFirestore(app, dbSettings, databaseId);
-
-const googleProvider = new GoogleAuthProvider();
-
-export const loginWithGoogle = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (error: any) {
-    if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
-      console.warn("Google Login cancelled by user.");
-      return null;
-    }
-    console.error("Error logging in with Google:", error);
-    throw error;
-  }
-};
-
+// Auth Helpers
+export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const logout = () => signOut(auth);
 
-// Firestore Error Handler as per integration guidelines
+// Error Handling Helper
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -57,18 +30,21 @@ export enum OperationType {
   WRITE = 'write',
 }
 
-interface FirestoreErrorInfo {
+export interface FirestoreErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;
   authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
     }[];
   }
 }
@@ -81,9 +57,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
       email: auth.currentUser?.email,
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
         providerId: provider.providerId,
+        displayName: provider.displayName,
         email: provider.email,
+        photoUrl: provider.photoURL
       })) || []
     },
     operationType,
@@ -93,12 +72,19 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-export { 
-  collection, addDoc, doc, setDoc, getDoc, getDocs, 
-  query, where, orderBy, limit, onSnapshot, 
-  serverTimestamp, onAuthStateChanged, getDocFromServer
-};
+// Connection test
+async function testConnection() {
+  try {
+    // Usamos la colección 'properties' que es pública según las reglas
+    await getDocFromServer(doc(db, 'properties', 'connection-test'));
+  } catch (error) {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration. The client is offline.");
+    }
+  }
+}
+
+testConnection();
+
+export { onAuthStateChanged };
 export type { User };
-
-export default app;
-

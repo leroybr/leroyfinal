@@ -1,257 +1,141 @@
-import dotenv from "dotenv";
-// 1. Force environment loading before any other imports
-dotenv.config();
-
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
-import { getRegulatoryData, estimatePropertyValue, runMarketAnalysis } from "./src/services/geminiService";
+import fs from "fs";
+import cors from "cors";
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import firebaseConfig from './src/firebase-applet-config.json';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Initialize Firebase for the server (to fetch feeds)
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
-const app = express();
-app.use(express.json());
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
 
-// Lightweight CORS middleware to avoid external package requirements
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+  app.use(cors());
+  app.use(express.json({ limit: '50mb' })); // Increased limit for base64 images
 
-// Global Exception Handlers
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
-});
+  const DATA_DIR = path.join(process.cwd(), 'data');
+  const PROPERTIES_FILE = path.join(DATA_DIR, 'properties.json');
 
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
-});
-
-// Logger middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} ${res.statusCode} ${duration}ms`);
-  });
-  next();
-});
-
-// API Routes
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
-    market: "Chile", 
-    currency: "UF",
-    geminiKeyLoaded: !!process.env.GEMINI_API_KEY 
-  });
-});
-
-app.post("/api/get-regulatory-data", async (req, res) => {
-  try {
-    const {
-      commune,
-      sector,
-      rol,
-      street,
-      number,
-      rolManzana,
-      rolPredio,
-      currentZoningCode,
-      m2_total,
-      is_corner,
-      corner_street,
-      street_classification,
-      corner_street_classification,
-      tipoInforme,
-    } = req.body;
-
-    if (!commune) {
-      return res.status(400).json({ error: "Falta la comuna requerida." });
-    }
-
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn("[Backend SDK Warning] Call made while GEMINI_API_KEY is not defined in process.env.");
-    }
-
-    const data = await getRegulatoryData(
-      commune,
-      sector || "",
-      rol || "",
-      street,
-      number,
-      rolManzana,
-      rolPredio,
-      currentZoningCode,
-      m2_total,
-      is_corner,
-      corner_street,
-      street_classification,
-      corner_street_classification,
-      tipoInforme
-    );
-
-    res.json(data);
-  } catch (error: any) {
-    console.error("Error in /api/get-regulatory-data:", error);
-    res.status(500).json({ error: "Error al procesar la normativa con IA", message: error.message });
-  }
-});
-
-app.post("/api/estimate-property-value", async (req, res) => {
-  try {
-    const { data, ufValue } = req.body;
-
-    if (!data) {
-      return res.status(400).json({ error: "Faltan los datos de la propiedad para la tasación." });
-    }
-    if (!ufValue) {
-      return res.status(400).json({ error: "Falta el valor de la UF para la tasación." });
-    }
-
-    if (!process.env.GEMINI_API_KEY) {
-      console.warn("[Backend SDK Warning] Call made while GEMINI_API_KEY is not defined in process.env.");
-    }
-
-    const result = await estimatePropertyValue(data, ufValue);
-    res.json(result);
-  } catch (error: any) {
-    console.error("Error in /api/estimate-property-value:", error);
-    res.status(500).json({ error: "Error al realizar la tasación con IA", message: error.message });
-  }
-});
-
-app.post("/api/analisis-mercado", async (req, res) => {
-  try {
-    const payload = req.body;
-    console.log("[Backend] Recibido para análisis en cascada:", payload);
-
-    if (!payload.comuna) {
-      return res.status(400).json({ error: "Falta la comuna requerida." });
-    }
-
-    const data = await runMarketAnalysis(payload);
-    res.json(data);
-  } catch (error: any) {
-    console.error("Error in /api/analisis-mercado:", error);
-    res.status(500).json({ error: "Error al realizar el análisis experto con IA", message: error.message });
-  }
-});
-
-// Mock Market Data API
-app.get("/api/market-stats", (req, res) => {
-  res.json([]);
-});
-
-// Proxy for Commune Block Cartography (IDE Chile WFS Layer) - Safe and resilient
-app.get("/api/cartografia-manzana", async (req, res) => {
-  const { comunaCode, manzana } = req.query;
-  
-  if (!comunaCode || !manzana) {
-    return res.status(400).json({ error: "Faltan parámetros comunaCode o manzana" });
+  // Ensure data directory exists
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR);
   }
 
-  const mznFormateada = String(manzana).padStart(5, '0');
-  
-  // Robust coordinate retrieval with srsName and maxFeatures limit
-  const urlWFS = `https://ide.minvu.cl/geoserver/wfs?` + 
-    `service=WFS&version=1.1.0&request=GetFeature&` +
-    `typeName=minvu:capa_predios_sii&` + 
-    `outputFormat=application/json&` +
-    `srsName=EPSG:4326&maxFeatures=100&` +
-    `cql_filter=comuna='${comunaCode}'%20AND%20manzana='${mznFormateada}'`;
-
-  try {
-    console.log(`[WFS Proxy] Solicitando entorno de manzana: ${mznFormateada} para comuna: ${comunaCode}`);
-    
-    const respuesta = await fetch(urlWFS, {
-      headers: { 'Accept': 'application/json' },
-      method: "GET"
-    });
-
-    if (!respuesta.ok) {
-      throw new Error(`Servidor cartográfico de IDE Chile retornó status: ${respuesta.status}`);
-    }
-    
-    const textBody = await respuesta.text();
-    if (!textBody || !textBody.trim().startsWith("{")) {
-      throw new Error("El servidor cartográfico de IDE Chile no retornó un JSON válido (posible mantenimiento o bloqueo temporal).");
-    }
-
-    const data = JSON.parse(textBody);
-    res.json(data);
-  } catch (error: any) {
-    console.error("Error al rescatar el entorno de la manzana en backend:", error.message || error);
-    // Suppress network crash with a structured empty response so maps stay functional
-    res.status(200).json({ 
-      type: "FeatureCollection", 
-      features: [], 
-      message: "No se encontraron predios disponibles en la consulta o falla temporal de red." 
-    });
+  // Initial properties if file doesn't exist
+  if (!fs.existsSync(PROPERTIES_FILE)) {
+    fs.writeFileSync(PROPERTIES_FILE, JSON.stringify([], null, 2));
   }
-});
 
-// Proxy for UF value to avoid browser CORS and external lag
-app.get("/api/uf", async (req, res) => {
-  const FALLBACK_UF = 37350; // Respaldo oficial chileno
-  
-  try {
-    if (typeof fetch !== 'function') {
-      console.warn("Global fetch no está disponible, usando fallback.");
-      return res.json({ serie: [{ valor: FALLBACK_UF }] });
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
-
+  // API Routes
+  app.get("/api/properties", async (req, res) => {
     try {
-      const response = await fetch('https://mindicador.cl/api/uf', { 
-        signal: controller.signal,
-        headers: { 'User-Agent': 'PropValue-1-App/1.0' }
-      });
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        return res.json({ serie: [{ valor: FALLBACK_UF }] });
-      }
-      
-      const data = await response.json();
-      
-      if (data && data.serie && data.serie.length > 0 && typeof data.serie[0].valor === 'number') {
-        return res.json(data);
-      } else {
-        return res.json({ serie: [{ valor: FALLBACK_UF }] });
-      }
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      return res.json({ serie: [{ valor: FALLBACK_UF }] });
+      const q = query(collection(db, 'properties'), orderBy('id', 'desc'));
+      const snapshot = await getDocs(q);
+      const properties = snapshot.docs.map(doc => doc.data());
+      res.json(properties);
+    } catch (error) {
+      console.error("Error fetching properties from Firestore:", error);
+      res.json([]);
     }
-  } catch (error: any) {
-    return res.json({ serie: [{ valor: FALLBACK_UF }] });
-  }
-});
+  });
 
-// Global Error Handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Unhandled Error:", err);
-  res.status(500).json({ error: "Internal Server Error", message: err.message });
-});
+  app.post("/api/properties", (req, res) => {
+    // This endpoint is now deprecated in favor of direct Firestore writes from client
+    res.status(410).json({ error: "Use direct Firestore writes" });
+  });
 
-async function setupServer() {
-  console.log("Iniciando configuración del servidor PropValue...");
-  console.log("Entorno detectado:", process.env.NODE_ENV || "development");
-  const keyTemp = process.env.GEMINI_API_KEY || "";
-  console.log(`¿Clave de Gemini API cargada globalmente?: ${!!keyTemp} (Length: ${keyTemp.length}, Prefix: ${keyTemp.substring(0, 6)})`);
+  // Feeds for Portals
+  app.get("/api/feeds/facebook.xml", async (req, res) => {
+    try {
+      const q = query(collection(db, 'properties'), orderBy('id', 'desc'));
+      const snapshot = await getDocs(q);
+      const properties = snapshot.docs.map(doc => doc.data());
+      
+      let xml = `<?xml version="1.0"?>
+<listings>
+  <title>LeRoy Residence Feed</title>
+  <link>${req.protocol}://${req.get('host')}</link>
+  <description>Propiedades de Lujo en Chile</description>
+  ${properties.map((p: any) => `
+  <listing>
+    <home_listing_id>${p.id}</home_listing_id>
+    <name>${p.title}</name>
+    <description>${p.description}</description>
+    <address format="simple">
+      <component name="city">${p.location}</component>
+      <component name="country">Chile</component>
+    </address>
+    <price>${p.price} ${p.currency}</price>
+    <url>${req.protocol}://${req.get('host')}/property/${p.id}</url>
+    <image>
+      <url>${p.imageUrl}</url>
+    </image>
+    <listing_type>for_${p.listingType === 'sale' ? 'sale' : 'rent'}</listing_type>
+    <num_beds>${p.bedrooms}</num_beds>
+    <num_baths>${p.bathrooms}</num_baths>
+  </listing>`).join('')}
+</listings>`;
 
-  // Vite middleware for development mode
+      res.header('Content-Type', 'text/xml');
+      res.send(xml);
+    } catch (error) {
+      res.status(500).send("Error generating feed");
+    }
+  });
+
+  // Generic XML Feed for other portals (like Portal Inmobiliario / TocToc style)
+  app.get("/api/feeds/universal.xml", async (req, res) => {
+    try {
+      const q = query(collection(db, 'properties'), orderBy('id', 'desc'));
+      const snapshot = await getDocs(q);
+      const properties = snapshot.docs.map(doc => doc.data());
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<property_feed>
+  <provider>LeRoy Residence</provider>
+  <properties>
+    ${properties.map((p: any) => `
+    <property>
+      <id>${p.id}</id>
+      <title><![CDATA[${p.title}]]></title>
+      <subtitle><![CDATA[${p.subtitle}]]></subtitle>
+      <type>${p.type}</type>
+      <operation>${p.listingType}</operation>
+      <price currency="${p.currency}">${p.price}</price>
+      <location>
+        <city>${p.location}</city>
+        <country>Chile</country>
+      </location>
+      <features>
+        <bedrooms>${p.bedrooms}</bedrooms>
+        <bathrooms>${p.bathrooms}</bathrooms>
+        <parking>${p.parking}</parking>
+        <area unit="m2">${p.area}</area>
+        <land_area unit="m2">${p.landArea}</land_area>
+      </features>
+      <description><![CDATA[${p.description}]]></description>
+      <images>
+        <image>${p.imageUrl}</image>
+        ${(p.categoryImages || []).map((img: any) => `<image>${img.imageUrl}</image>`).join('')}
+      </images>
+      <url>${req.protocol}://${req.get('host')}/property/${p.id}</url>
+    </property>`).join('')}
+  </properties>
+</property_feed>`;
+
+      res.header('Content-Type', 'text/xml');
+      res.send(xml);
+    } catch (error) {
+      res.status(500).send("Error generating feed");
+    }
+  });
+
+  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -259,24 +143,16 @@ async function setupServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Production static mapping
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  if (process.env.VERCEL !== "1") {
-    const PORT = parseInt(process.env.PORT || "3000", 10);
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Prop Value 1 en línea de forma segura: http://localhost:${PORT}`);
-    });
-  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
 }
 
-setupServer().catch(err => {
-  console.error("Fallo crítico en la inicialización de server.ts:", err);
-});
-
-export default app;
+startServer();
