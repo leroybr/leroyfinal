@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.DS_Store
+*.log
+
+# Compressed files & archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
