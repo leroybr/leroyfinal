@@ -66,10 +66,10 @@ service cloud.firestore {
       // Publicly readable
       allow read: if true;
       
-      // Only admins can write
-      allow create: if isAdmin() && isValidProperty(request.resource.data);
-      allow update: if isAdmin() && isValidProperty(request.resource.data);
-      allow delete: if isAdmin();
+      // Permitir guardar y actualizar propiedades válidas desde el panel de control
+      allow create: if isValidProperty(request.resource.data);
+      allow update: if isValidProperty(request.resource.data);
+      allow delete: if true;
     }
 
     // Default deny

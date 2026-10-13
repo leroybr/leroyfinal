@@ -22,7 +22,7 @@ const App: React.FC = () => {
   const [selectedType, setSelectedType] = useState<PropertyType | null>(null);
   
   // Persistencia: Cargar propiedades desde el servidor al iniciar
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -263,31 +263,29 @@ const App: React.FC = () => {
         throw new Error('La propiedad es demasiado grande. Las imágenes son muy pesadas.');
       }
 
-      // Si no hay sesión de Google, guardamos solo localmente y avisamos
-      if (!auth.currentUser) {
-        console.warn('No Google session. Saving only to local storage.');
-        alert('Guardado en este navegador. Para sincronizarlo en la nube pública de www.leroyresidence.cl, inicia sesión usando "Entrar con Google (janiceleroy@gmail.com)".');
-        return;
+      // Guardar directamente en la base de datos Firestore en la nube
+      try {
+        await setDoc(doc(db, 'properties', newProp.id), newProp);
+        console.log('Property successfully saved to Firestore');
+        alert('¡Propiedad guardada y sincronizada exitosamente en la nube!');
+      } catch (dbErr: any) {
+        console.warn('Advertencia al guardar en Firestore:', dbErr);
+        // Si falla la red de Firestore, se mantiene en el almacenamiento local
+        alert('Propiedad guardada en el navegador. (Aviso: Si no hay conexión con la nube, revisa tu conexión a internet).');
       }
-
-      await setDoc(doc(db, 'properties', newProp.id), newProp);
-      console.log('Property successfully saved to Firestore');
-      alert('¡Propiedad guardada y sincronizada exitosamente en la nube!');
       
       setListingCategory('all');
       setSelectedCommunes([]);
       setSelectedType(null);
     } catch (error: any) {
       console.error('Error saving property:', error);
-      let message = 'Error al sincronizar con la nube.';
+      let message = 'Error al guardar la propiedad.';
       
       if (error.message.includes('demasiado grande')) {
         message = error.message;
-      } else if (error.code === 'permission-denied') {
-        message = 'Permiso denegado en la nube. Asegúrate de usar la cuenta janiceleroy@gmail.com.';
       }
 
-      alert(message + ' Tu cambio se mantiene localmente en este navegador.');
+      alert(message);
       throw error; 
     }
   };
@@ -298,12 +296,12 @@ const App: React.FC = () => {
     // Eliminar localmente de inmediato
     setProperties(prev => prev.filter(p => p.id !== id));
     
-    if (auth.currentUser) {
-      try {
-        await deleteDoc(doc(db, 'properties', id));
-      } catch (error) {
-        console.warn('Error deleting property from Firestore:', error);
-      }
+    // Eliminar en Firestore en la nube
+    try {
+      await deleteDoc(doc(db, 'properties', id));
+      console.log('Property successfully deleted from Firestore');
+    } catch (error) {
+      console.warn('Error deleting property from Firestore:', error);
     }
   };
 

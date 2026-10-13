@@ -36,14 +36,12 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentView, onContactHover
   }, []);
 
   const isHome = currentView === 'home';
-  // Luxury Dark Banner Header for maximum contrast and readability
-  const headerBaseClass = isHome && !scrolled 
-    ? 'bg-gradient-to-b from-black/90 via-black/70 to-transparent text-white border-transparent' 
-    : 'bg-leroy-black text-white shadow-xl border-b border-white/10';
+  // El fondo negro llega exactamente hasta la línea divisoria
+  const headerBaseClass = 'bg-black text-white shadow-xl';
 
   return (
-    <header className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ease-in-out ${headerBaseClass}`}>
-      <div className="w-full px-6 md:px-10 py-2.5 md:py-3.5">
+    <header className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ease-in-out ${headerBaseClass}`}>
+      <div className="w-full px-6 md:px-10 pt-2.5 md:pt-3 pb-2 bg-black">
         {/* Top Row: Logo & Search */}
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-baseline gap-16 md:gap-24">
@@ -172,10 +170,10 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentView, onContactHover
             </div>
           </div>
         </div>
-
-        {/* Line 2 */}
-        <div className={`w-full h-[1px] bg-gray-100`}></div>
       </div>
+
+      {/* Línea divisoria exacta: El fondo negro termina exactamente en esta línea */}
+      <div className="w-full h-[1px] bg-white/20"></div>
     </header>
   );
 };
